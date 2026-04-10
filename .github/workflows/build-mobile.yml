@@ -31,6 +31,9 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
           
+      - name: Capacitor Sync
+        run: npx cap sync android
+        
       - name: Build Android APK (Universal)
         run: |
           cd android
