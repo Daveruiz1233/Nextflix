@@ -7,7 +7,6 @@ This version of Nextflix has been converted to a native mobile app (iOS/Android)
 
 ### Key Features
 - **Stealth Shield**: Intercepts and mocks tracker requests to bypass anti-adblock detection.
-- **Touch Thief**: A custom interaction layer that neutralizes "first-click" hijack redirects common in streaming sources.
 - **Native Blocklists**: Hardcoded Safari Content Blockers (iOS) and Java Interceptors (Android) for smooth, ad-free playback.
 - **Premium UI**: Dark-mode, glassmorphic design optimized for legacy hardware (iPhone 6s Plus).
 

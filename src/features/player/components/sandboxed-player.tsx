@@ -19,8 +19,6 @@ export function SandboxedPlayer({ src, iframeKey, layoutMode, className }: Sandb
   const [isError, setIsError] = useState(false);
   const [blockedCount, setBlockedCount] = useState(0);
   const [isShieldArmed, setIsShieldArmed] = useState(false);
-  const [touchThiefActive, setTouchThiefActive] = useState(true);
-  const [isCleaning, setIsCleaning] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const handleLoad = () => {
@@ -115,16 +113,6 @@ export function SandboxedPlayer({ src, iframeKey, layoutMode, className }: Sandb
     };
   }, [iframeKey, incrementBlocked]);
 
-  const handleTouchThiefClick = () => {
-    setIsCleaning(true);
-    // Simulate "Cleaning" the stream for 800ms to eat any initial click-hijacks
-    setTimeout(() => {
-      setTouchThiefActive(false);
-      setIsCleaning(false);
-      console.log("[Shield] Touch Thief disarmed. Stream ready.");
-    }, 800);
-  };
-
   return (
     <div
       className={cn(
@@ -218,35 +206,6 @@ export function SandboxedPlayer({ src, iframeKey, layoutMode, className }: Sandb
         onLoad={handleLoad}
         onError={handleError}
       />
-
-      {/* Touch Thief Overlay - Intercepts the first hijack-click */}
-      <AnimatePresence>
-        {touchThiefActive && !isLoading && !isError && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={handleTouchThiefClick}
-            className="absolute inset-0 z-30 cursor-pointer bg-white/0 flex items-center justify-center group"
-          >
-            {isCleaning && (
-              <motion.div 
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="bg-black/80 backdrop-blur-xl px-6 py-3 rounded-full border border-nf-accent/30 shadow-2xl flex items-center gap-3"
-              >
-                <RefreshCw className="w-5 h-5 text-nf-accent animate-spin" />
-                <span className="text-white font-bold text-sm tracking-widest uppercase">Shielding Redirect...</span>
-              </motion.div>
-            )}
-            {!isCleaning && (
-              <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 backdrop-blur-sm px-4 py-2 rounded-lg text-white/70 text-xs font-medium border border-white/10">
-                Secure Click Enabled
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

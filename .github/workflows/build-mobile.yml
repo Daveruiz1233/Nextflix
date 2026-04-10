@@ -115,7 +115,6 @@ jobs:
             
             ### ✨ Features
             - **Native Shield (iOS/Android)**: Engine-level adblocking that kills redirects inside streaming iframes.
-            - **Touch Thief Overlay**: Capture hijack-clicks before they trigger.
             - **Stealth Service Worker**: Detects and mocks tracking requests.
             - **Premium UI**: Optimized for mobile performance (iPhone 6s Plus).
             
