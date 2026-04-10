@@ -4,7 +4,6 @@ import { Inter } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { Providers } from "./providers";
 import { LayoutWrapper } from "@/shared/components/layout-wrapper";
-import { ShieldRegistration } from "@/shared/components/shield-registration";
 
 const inter = Inter({
   subsets: ["latin"],
