@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Nextflix</string>
+    <string name="title_activity_main">Nextflix</string>
+    <string name="package_name">com.nextflix.free</string>
+    <string name="custom_url_scheme">com.nextflix.free</string>
+</resources>
