@@ -25,10 +25,10 @@ jobs:
         env:
           NEXT_PUBLIC_TMDB_API_KEY: ${{ secrets.NEXT_PUBLIC_TMDB_API_KEY }}
           
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v3
         with:
-          java-version: '17'
+          java-version: '21'
           distribution: 'temurin'
           
       - name: Capacitor Sync
@@ -70,14 +70,27 @@ jobs:
         
       - name: Build iOS App Bundle (Unsigned)
         run: |
-          xcodebuild -workspace ios/App/App.xcworkspace \
-                     -scheme App \
-                     -configuration Debug \
-                     -sdk iphoneos \
-                     -derivedDataPath build \
-                     CODE_SIGN_IDENTITY="" \
-                     CODE_SIGNING_REQUIRED=NO \
-                     CODE_SIGNING_ALLOWED=NO
+          if [ -d "ios/App/App.xcworkspace" ]; then
+            echo "Building with Workspace..."
+            xcodebuild -workspace ios/App/App.xcworkspace \
+                       -scheme App \
+                       -configuration Debug \
+                       -sdk iphoneos \
+                       -derivedDataPath build \
+                       CODE_SIGN_IDENTITY="" \
+                       CODE_SIGNING_REQUIRED=NO \
+                       CODE_SIGNING_ALLOWED=NO
+          else
+            echo "Building with Project..."
+            xcodebuild -project ios/App/App.xcodeproj \
+                       -scheme App \
+                       -configuration Debug \
+                       -sdk iphoneos \
+                       -derivedDataPath build \
+                       CODE_SIGN_IDENTITY="" \
+                       CODE_SIGNING_REQUIRED=NO \
+                       CODE_SIGNING_ALLOWED=NO
+          fi
                      
       - name: Package IPA (Unsigned)
         run: |
