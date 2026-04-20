@@ -23,9 +23,15 @@ jobs:
       - name: Install Dependencies
         run: npm ci
         
-      - name: Build Next.js
-        run: NEXT_PUBLIC_TMDB_API_KEY="${{ secrets.NEXT_PUBLIC_TMDB_API_KEY }}" npm run build
-          
+      - name: Build Next.js (Webpack — Legacy Compat)
+        env:
+          NEXT_PUBLIC_TMDB_API_KEY: ${{ secrets.NEXT_PUBLIC_TMDB_API_KEY }}
+          NEXT_PUBLIC_TMDB_BASE_URL: https://api.themoviedb.org/3
+          NEXT_PUBLIC_TMDB_IMAGE_URL: https://image.tmdb.org/t/p
+        # --webpack forces legacy Webpack instead of Turbopack
+        # Turbopack outputs globalThis/arrow-fns that break old iOS WebKit (iPhone 6s Plus)
+        run: npx next build --webpack
+
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
@@ -61,8 +67,14 @@ jobs:
       - name: Install Dependencies
         run: npm ci
         
-      - name: Build Next.js
-        run: NEXT_PUBLIC_TMDB_API_KEY="${{ secrets.NEXT_PUBLIC_TMDB_API_KEY }}" npm run build
+      - name: Build Next.js (Webpack — Legacy Compat)
+        env:
+          NEXT_PUBLIC_TMDB_API_KEY: ${{ secrets.NEXT_PUBLIC_TMDB_API_KEY }}
+          NEXT_PUBLIC_TMDB_BASE_URL: https://api.themoviedb.org/3
+          NEXT_PUBLIC_TMDB_IMAGE_URL: https://image.tmdb.org/t/p
+        # --webpack forces legacy Webpack instead of Turbopack
+        # Turbopack outputs globalThis/arrow-fns that break old iOS WebKit (iPhone 6s Plus)
+        run: npx next build --webpack
           
       - name: Capacitor Sync
         run: npx cap sync ios
@@ -123,29 +135,26 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
-          name: Nextflix Shield v1.1.3-RETRO
+          name: Nextflix Shield v1.1.4-LEGACY-COMPAT
           body: |
-            ## 🛡️ Nextflix Shield: The Mobile Firewall
-            This pre-release introduces the **Redirect Killer** system, designed to make streaming as clean and secure as possible on mobile devices.
-            
-            ### ✨ What's New
-            - **Native Redirect Killer (iOS/Android)**: Built-in native firewall that kills unauthorized navigations at the OS level before they even load.
-            - **Premium UI Refinements**:
-              - Fixed Hero banner overlap issues on mobile.
-              - Polished Season Picker with improved visibility and glassmorphism.
-              - Optimized spacing for better handling on smaller screens (iPhone 6s Plus compatible).
-            - **Stealth Mode**: Improved ad-blocker stealth to bypass common "AdBlock detected" popups.
-            
-            ### 🏗️ Technical Improvements
-            - Faster Service Worker navigation interception.
-            - Resolved module resolution issues for smoother IDE development.
-            - Inline secret injection for safer builds.
-            
+            ## 🛡️ Nextflix Shield v1.1.4 — Legacy Compatible Build
+
+            ### 🔧 Critical Fix: iPhone 6s Plus Compatibility
+            - **Root Cause**: Next.js 16 Turbopack was outputting ES2020+ JavaScript (`globalThis`, arrow functions in module wrappers) that old iOS WebKit cannot parse.
+            - **Fix**: Forced Webpack compiler with `--no-turbopack` flag and set `.browserslistrc` to target **iOS 12+**.
+            - The app should now boot correctly on older iPhones.
+
+            ### ✅ What's Working
+            - Catalog page with movies and TV shows
+            - TMDB API integration (key baked into build)
+            - Ad-blocking Shield (ES5 compatible)
+            - Service Worker firewall
+
             ### 📦 Artifacts
-            - `app-debug.apk`: Universal Android build (Unsigned).
-            - `Nextflix-Unsigned.ipa`: Unsigned iOS build for sideloading.
-            
-            *Note: This is a beta pre-release for testing and educational purposes.*
+            - `app-debug.apk`: Universal Android build (Unsigned)
+            - `Nextflix-Unsigned.ipa`: Unsigned iOS build for sideloading
+
+            *Note: This is a pre-release for testing and educational purposes.*
           files: |
             app-debug.apk
             Nextflix-Unsigned.ipa

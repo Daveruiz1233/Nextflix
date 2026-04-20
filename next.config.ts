@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "export",
+
   images: {
     unoptimized: true,
     remotePatterns: [
@@ -12,7 +13,8 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  // In a static export, headers() are ignored. 
+
+  // In a static export, headers() are ignored.
   // We move CSP to a <meta> tag in layout.tsx for Capacitor support.
 };
 

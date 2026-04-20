@@ -1,0 +1,17 @@
+# Nextflix browserslist targets
+# Targeting iOS 12+ for iPhone 6s Plus compatibility
+# This controls SWC/Babel transpilation output
+
+# Production targets
+[production]
+iOS >= 12
+Safari >= 12
+Chrome >= 70
+Firefox >= 70
+Edge >= 79
+
+# Development can be more permissive
+[development]
+last 1 chrome version
+last 1 firefox version
+last 1 safari version
