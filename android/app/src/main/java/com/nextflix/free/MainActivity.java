@@ -1,92 +1,137 @@
 package com.nextflix.free;
 
 import android.os.Bundle;
+import android.os.Message;
 import android.util.Log;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import com.getcapacitor.BridgeActivity;
+
 import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
 public class MainActivity extends BridgeActivity {
+
     private static final String TAG = "NextflixShield";
 
-    // Top-priority known redirect domains (fast path)
-    private static final Set<String> KNOWN_AD_DOMAINS = new HashSet<>(Arrays.asList(
-        "rtmark.net", "104processors.net", "yandex.ru", "adscore.info",
-        "doubleclick.net", "google-analytics.com", "tarzansaminate.cfd",
-        "streameeeeee.site", "taboola.com", "outbrain.com", "popads.net",
-        "popcash.net", "propellerads.com", "exoclick.com", "trafficjunky.net",
-        "traffichaus.com", "juicyads.com", "hilltopads.net", "plugrush.com",
-        "ero-advertising.com", "a-ads.com", "coinzilla.com", "adsterra.com",
-        "bidvertiser.com", "yllix.com", "adclickmedia.com", "clickadu.com"
+    // ══════════════════════════════════════════════════════════════════
+    // FAST-PATH AD DOMAIN BLOCKLIST
+    // First-pass check before the full 45k-rule JSON
+    // ══════════════════════════════════════════════════════════════════
+    private static final Set<String> AD_DOMAINS = new HashSet<>(Arrays.asList(
+        // Redirect/popup networks
+        "rtmark.net", "104processors.net", "yandex.ru",
+        "tarzansaminate.cfd", "streameeeeee.site",
+        // Ad networks
+        "doubleclick.net", "googlesyndication.com",
+        "taboola.com", "outbrain.com", "popads.net", "popcash.net",
+        "propellerads.com", "exoclick.com", "trafficjunky.net",
+        "juicyads.com", "hilltopads.net", "adsterra.com",
+        "bidvertiser.com", "yllix.com", "clickadu.com",
+        // Trackers
+        "scorecardresearch.com", "quantserve.com", "omtrdc.net",
+        "adsrvr.org", "rubiconproject.com", "casalemedia.com",
+        "openx.net", "pubmatic.com", "criteo.com"
     ));
 
-    // AdGuard-style injection script — same approach as the browser extension
-    // Injected at document start into EVERY frame (main + iframes)
-    private static final String ADGUARD_SCRIPT =
-        "(function() {" +
-        "  'use strict';" +
-        // Phase 1: Location hijack blocker
-        "  var _allowed = ['localhost', 'capacitor'];" +
-        "  function isOk(url) {" +
-        "    if (!url) return true;" +
-        "    var s = String(url);" +
-        "    for (var i = 0; i < _allowed.length; i++) {" +
-        "      if (s.indexOf(_allowed[i]) !== -1) return true;" +
-        "    }" +
-        "    return false;" +
+    // ══════════════════════════════════════════════════════════════════
+    // JS INJECTION — patches ALL redirect vectors in every frame
+    // Same approach as AdGuard extension's scriptlet injection
+    // ══════════════════════════════════════════════════════════════════
+    private static final String SHIELD_JS =
+        "(function(){" +
+        "'use strict';" +
+
+        // Allowed URL checker
+        "var _ok=['localhost','127.0.0.1','capacitor://'];" +
+        "function isOk(u){" +
+        "  if(!u||u===''||u==='#')return true;" +
+        "  var s=String(u);" +
+        "  if(s.startsWith('blob:')||s.startsWith('data:')||s.startsWith('about:')||s.startsWith('javascript:'))return true;" +
+        "  for(var i=0;i<_ok.length;i++){if(s.indexOf(_ok[i])!==-1)return true;}" +
+        "  return false;" +
+        "}" +
+
+        // 1. location.href via prototype (stronger than window.location)
+        "try{" +
+        "  var d=Object.getOwnPropertyDescriptor(Location.prototype,'href');" +
+        "  if(d&&d.set){" +
+        "    var os=d.set;" +
+        "    Object.defineProperty(Location.prototype,'href',{" +
+        "      get:d.get," +
+        "      set:function(u){if(isOk(String(u))){os.call(this,u);}else{console.warn('[Shield] href blocked:',u);}}" +
+        "    });" +
         "  }" +
-        // Phase 2: window.open killer
-        "  var _origOpen = window.open;" +
-        "  window.open = function(url) {" +
-        "    var u = url ? String(url) : '';" +
-        "    if (!isOk(u)) {" +
-        "      console.warn('[Shield-A] Blocked window.open: ' + u);" +
-        "      AndroidShield && AndroidShield.log('BLOCKED_OPEN:' + u);" +
-        "      return {focus:function(){},close:function(){},closed:true};" +
+        "}catch(e){}" +
+
+        // 2. location.replace()
+        "try{" +
+        "  var or=Location.prototype.replace;" +
+        "  Location.prototype.replace=function(u){if(isOk(String(u))){or.call(this,u);}else{console.warn('[Shield] replace blocked:',u);}}" +
+        "}catch(e){}" +
+
+        // 3. location.assign()
+        "try{" +
+        "  var oa=Location.prototype.assign;" +
+        "  Location.prototype.assign=function(u){if(isOk(String(u))){oa.call(this,u);}else{console.warn('[Shield] assign blocked:',u);}}" +
+        "}catch(e){}" +
+
+        // 4. window.open() — THE MAIN CAUSE of browser opening
+        "window.open=function(u,t,f){" +
+        "  console.warn('[Shield] window.open blocked:',u);" +
+        "  if(AndroidShield)AndroidShield.log('OPEN:'+u);" +
+        "  return{closed:true,focus:function(){},close:function(){},postMessage:function(){}};" +
+        "};" +
+
+        // 5. <a target="_blank"> click blocker
+        "document.addEventListener('click',function(e){" +
+        "  var el=e.target;" +
+        "  while(el){" +
+        "    if(el.tagName==='A'){" +
+        "      var h=el.getAttribute('href')||'';" +
+        "      var t=el.getAttribute('target')||'';" +
+        "      if((t==='_blank'||t==='_top'||t==='_parent')&&!isOk(h)){" +
+        "        e.preventDefault();e.stopImmediatePropagation();" +
+        "        console.warn('[Shield] _blank blocked:',h);" +
+        "        return false;" +
+        "      }" +
+        "      break;" +
         "    }" +
-        "    return _origOpen ? _origOpen.apply(this, arguments) : null;" +
-        "  };" +
-        // Phase 3: anchor click blocker
-        "  document.addEventListener('click', function(e) {" +
-        "    var a = e.target;" +
-        "    while (a && a.tagName !== 'A') a = a.parentElement;" +
-        "    if (!a) return;" +
-        "    var href = a.href || '';" +
-        "    if (!isOk(href) && href && href !== '#' && href.indexOf('javascript') === -1) {" +
-        "      e.preventDefault(); e.stopPropagation();" +
-        "      console.warn('[Shield-A] Blocked link: ' + href);" +
-        "    }" +
-        "  }, true);" +
-        // Phase 4: setTimeout redirect buster
-        "  var _origST = window.setTimeout;" +
-        "  window.setTimeout = function(fn, d) {" +
-        "    if (typeof fn === 'string' && (fn.indexOf('location') !== -1 || fn.indexOf('open') !== -1)) {" +
-        "      console.warn('[Shield-A] Blocked eval-timeout'); return 0;" +
-        "    }" +
-        "    return _origST.apply(this, arguments);" +
-        "  };" +
-        "  console.log('[Shield-A] AdGuard-style Android injection active');" +
+        "    el=el.parentElement;" +
+        "  }" +
+        "},true);" +
+
+        // 6. Synthetic anchor click
+        "var oc=HTMLAnchorElement.prototype.click;" +
+        "HTMLAnchorElement.prototype.click=function(){" +
+        "  if(!isOk(this.href||'')){console.warn('[Shield] synthetic click blocked:',this.href);return;}" +
+        "  oc.call(this);" +
+        "};" +
+
+        // 7. setTimeout eval-string
+        "var oST=window.setTimeout;" +
+        "window.setTimeout=function(fn,d){" +
+        "  if(typeof fn==='string'&&(fn.indexOf('location')!==-1||fn.indexOf('open')!==-1)){" +
+        "    console.warn('[Shield] eval-setTimeout blocked');return 0;" +
+        "  }" +
+        "  return oST.apply(this,arguments);" +
+        "};" +
+
+        "console.log('[Shield \u2713] Android injection active');" +
         "})();";
 
-    // Empty 200 OK response for blocked resources
-    private static final WebResourceResponse BLOCKED_RESPONSE =
-        new WebResourceResponse("text/plain", "UTF-8",
-            new ByteArrayInputStream("".getBytes()));
-
-    // Empty JS response for blocked scripts
-    private static final WebResourceResponse BLOCKED_JS_RESPONSE =
+    private static final WebResourceResponse EMPTY_OK =
+        new WebResourceResponse("text/plain", "UTF-8", new ByteArrayInputStream("".getBytes()));
+    private static final WebResourceResponse EMPTY_JS =
         new WebResourceResponse("application/javascript", "UTF-8",
-            new ByteArrayInputStream("/* Shielded */".getBytes()));
+            new ByteArrayInputStream("/* shielded */".getBytes()));
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -94,90 +139,102 @@ public class MainActivity extends BridgeActivity {
 
         WebView webView = this.bridge.getWebView();
 
-        // Enable JS interface for native logging from injection script
-        webView.addJavascriptInterface(new ShieldInterface(), "AndroidShield");
+        // ── Expose AndroidShield interface for JS reporting ───────────
+        webView.addJavascriptInterface(new ShieldBridge(), "AndroidShield");
 
+        // ── CRITICAL: Disable JavaScript's ability to open new windows ──
+        // This is the Android equivalent of WKUIDelegate.createWebViewWith returning nil
+        WebSettings settings = webView.getSettings();
+        settings.setJavaScriptCanOpenWindowsAutomatically(false);
+        settings.setSupportMultipleWindows(false);
+
+        // ── WebChromeClient: blocks window.open() at the native level ──
+        // This fires EVEN if JS patches are bypassed somehow
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onCreateWindow(WebView view, boolean isDialog,
+                                          boolean isUserGesture, Message resultMsg) {
+                Log.e(TAG, "🚫 onCreateWindow() BLOCKED (isUserGesture=" + isUserGesture + ")");
+                return false; // false = do not create window
+            }
+        });
+
+        // ── WebViewClient: network-level request interception ─────────
         webView.setWebViewClient(new WebViewClient() {
 
-            // ─────────────────────────────────────────────────────
-            // 🛑 TOP-LEVEL REDIRECT FIREWALL
-            // Blocks any attempt to navigate the MAIN frame away from our app
-            // ─────────────────────────────────────────────────────
+            // ── Main-frame redirect firewall ──────────────────────────
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
-                boolean isMainFrame = request.isForMainFrame();
+                String scheme = request.getUrl().getScheme();
 
-                // Always allow our own origin
+                // Always pass through our own app
                 if (url.startsWith("http://localhost") ||
                     url.startsWith("https://localhost") ||
-                    url.startsWith("capacitor://")) {
+                    url.startsWith("capacitor://") ||
+                    "about".equals(scheme) || "blob".equals(scheme)) {
                     return false;
                 }
 
-                if (isMainFrame) {
-                    Log.e(TAG, "🚫 HIJACK BLOCKED (main frame): " + url);
-                    return true; // Block and stay on current page
+                // Block ALL main-frame navigations to external URLs
+                if (request.isForMainFrame()) {
+                    Log.e(TAG, "🚫 Main-frame redirect BLOCKED: " + url);
+                    return true;
                 }
 
                 return false;
             }
 
-            // ─────────────────────────────────────────────────────
-            // 🛡️ NETWORK-LEVEL INTERCEPT (ALL requests)
-            // This is the key method — intercepts EVERY resource request
-            // including scripts, images, XHR — same as AdGuard's network filter
-            // ─────────────────────────────────────────────────────
+            // ── Network request blocker (ALL resources) ───────────────
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-                String url = request.getUrl().toString().toLowerCase();
+                String rawUrl = request.getUrl().toString();
+                String url = rawUrl.toLowerCase();
                 String host = request.getUrl().getHost();
                 if (host != null) host = host.toLowerCase();
 
-                // Fast path: known ad domains
+                // Fast-path: known ad domains
                 if (host != null) {
-                    for (String domain : KNOWN_AD_DOMAINS) {
-                        if (host.equals(domain) || host.endsWith("." + domain)) {
-                            Log.d(TAG, "🛡️ BLOCKED (known): " + host);
-                            return isScript(url) ? BLOCKED_JS_RESPONSE : BLOCKED_RESPONSE;
+                    for (String ad : AD_DOMAINS) {
+                        if (host.equals(ad) || host.endsWith("." + ad)) {
+                            Log.d(TAG, "🛡️ Domain blocked: " + host);
+                            return isScript(url) ? EMPTY_JS : EMPTY_OK;
                         }
                     }
                 }
 
-                // URL substring match for tracking pixels, pop scripts, etc.
-                if (url.contains("/ads/") || url.contains("/advert") ||
-                    url.contains("/popup") || url.contains("/pop.js") ||
-                    url.contains("track.php") || url.contains("click.php") ||
-                    url.contains("count.php") || url.contains("banner") ||
-                    url.contains("prebid") || url.contains("adsense")) {
-                    Log.d(TAG, "🛡️ BLOCKED (pattern): " + url);
-                    return isScript(url) ? BLOCKED_JS_RESPONSE : BLOCKED_RESPONSE;
+                // URL pattern matching
+                if (url.contains("/popup") || url.contains("pop.js") ||
+                    url.contains("/ads/") || url.contains("/advert") ||
+                    url.contains("prebid") || url.contains("track.php") ||
+                    url.contains("click.php") || url.contains("banner.")) {
+                    Log.d(TAG, "🛡️ Pattern blocked: " + url);
+                    return isScript(url) ? EMPTY_JS : EMPTY_OK;
                 }
 
                 return super.shouldInterceptRequest(view, request);
             }
 
-            // ─────────────────────────────────────────────────────
-            // 💉 INJECT ADGUARD-STYLE SCRIPT INTO EVERY PAGE & IFRAME
-            // ─────────────────────────────────────────────────────
+            // ── JS injection on every page (main + iframes) ───────────
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                // Inject protection into every page that loads (including iframes)
-                view.evaluateJavascript(ADGUARD_SCRIPT, null);
+                // evaluateJavascript runs in the frame context that just loaded
+                view.evaluateJavascript(SHIELD_JS, null);
             }
         });
+
+        Log.i(TAG, "🛡️ NextflixShield active — window.open DISABLED, all vectors patched");
     }
 
     private boolean isScript(String url) {
-        return url.endsWith(".js") || url.contains(".js?");
+        return url.endsWith(".js") || url.contains(".js?") || url.contains(".js#");
     }
 
-    // Native interface — lets the injected JS report blocks to logcat
-    private static class ShieldInterface {
+    private static class ShieldBridge {
         @JavascriptInterface
-        public void log(String message) {
-            Log.w(TAG, "📡 JS-Shield: " + message);
+        public void log(String msg) {
+            Log.w(TAG, "📡 JS: " + msg);
         }
     }
 }
