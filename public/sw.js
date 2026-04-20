@@ -19,8 +19,6 @@ var BLOCKED_DOMAINS = [
   // Known redirect/popup networks
   "rtmark.net", "104processors.net", "yandex.ru", "adscore.info",
   "tarzansaminate.cfd", "streameeeeee.site", "vidlink.pro",
-  "stream.ad", "stream-ad.com", "vcdn.io", "vjs.io",
-  "ad-delivery.net", "adform.net", "adnxs.com",
   // Ad networks
   "doubleclick.net", "googlesyndication.com", "google-analytics.com",
   "googletagmanager.com", "taboola.com", "outbrain.com",
@@ -39,8 +37,7 @@ var BLOCKED_DOMAINS = [
   "pocketmags.com", "aligans.com", "reliablesite.net",
   "clickhorsing.com", "offercdn.com", "a.bestadszone.com",
   "exosrv.com", "exoclick.com", "mxpnl.com",
-  "amplitude.com", "segment.io", "segment.com",
-  "adserv.click", "adtrack.one", "bestadbid.com"
+  "amplitude.com", "segment.io", "segment.com"
 ];
 
 // Allowed domains — NEVER block these

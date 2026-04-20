@@ -141,26 +141,26 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.0.${{ github.run_number }}
-          name: Nextflix Shield v3.0 — Nuclear Isolation
+          tag_name: v1.0.${{ github.run_number }}
+          name: Nextflix Shield v1.1.6 — Nuclear Defensive v2
           body: |
-            ## 🛡️ Nextflix Shield v3.0 — THE NUCLEAR UPDATE
+            ## 🛡️ Nextflix Shield v1.1.6 — Nuclear Defensive v2
 
-            ### 🆕 What's New: Zero-Collision Isolation
-            This version completely isolates the security shield from the Capacitor bridge.
+            ### ☢️ Massive Security Hardening
+            This version implements the **Nuclear Shield v2** engine, designed to eliminate even the most persistent "stealth" redirects.
 
-            | Feature | Status | Benefit |
-            |---|---|---|
-            | **Zero-Collision** | ✅ Active | Fixes RETRO_ERR / Red Banner Error |
-            | **Native Player Force** | ✅ Active | Keeps subtitles/quality settings on iOS |
-            | **Shield Pulse** | ✅ Active | Premium visual feedback for intrusions |
-            | **Hardening** | ✅ Active | Expands blocklist to vidlink.pro/stream.ad |
+            - **12 Redirect Vectors Patched**: Added coverage for `setInterval`, `requestAnimationFrame`, `document.write`, `postMessage`, and `eval-string` injection.
+            - **MutationObserver Sentry**: Real-time purging of ad-injected `meta-refresh` tags, clickjacking overlays, and zero-size tracking frames.
+            - **Native Native Firewall**: Native iOS/Android level blocking of `window.open` via `WKUIDelegate` and `WebChromeClient`.
+            - **RETRO_ERR Fix**: Added frame-awareness to the bridge injection to prevent Capacitor collision errors.
+            - **CSS Fullscreen v2**: Enhanced player aesthetics with specialized fixed-position glassmorphism controls.
+            | **TOTAL** | **185,660+** | 🛡️ AdGuard-grade protection |
 
-            ### 🔧 Security Layers (v3 Architecture)
-            1. **Strict Origin Isolation** — Block scripts exit main frame to prevent bridge collision.
-            2. **Inline Media Force** — Native iOS/Android override to prevent browser hijacking.
-            3. **MutationObserver v2** — Real-time DOM scanning for ad-injected meta-refresh tags.
-            4. **Service Worker Edge** — 185k+ domains blocked with hardcoded high-priority additions.
+            ### 🔧 How Blocking Works (3 Layers)
+            1. **Service Worker** — Intercepts ALL network requests via a 316KB Bloom filter (O(1) lookups)
+            2. **iOS Native** — `WKContentRuleList` with 45,000 rules at the network level
+            3. **Android Native** — `shouldInterceptRequest` blocks all ad requests before they load
+            4. **JS Injection** — Injected into EVERY iframe to kill `window.open`, `location.href` hijacks
 
             ### ✅ Compatibility
             - iOS 12+ (iPhone 6s Plus and newer)
