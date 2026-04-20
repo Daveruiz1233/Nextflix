@@ -28,7 +28,7 @@ export function CatalogPage() {
   useEffect(() => {
     const timer = setTimeout(() => {
       if (!hasData && isAnyLoading) setShowDiagnostics(true);
-    }, 5000); // Show diagnostics after 5 seconds of hanging
+    }, 2000); // reduced to 2 seconds
     return () => clearTimeout(timer);
   }, [hasData, isAnyLoading]);
 
@@ -54,7 +54,7 @@ export function CatalogPage() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
               </span>
-              SHIELD DIAGNOSTICS
+              SHIELD v1.1.2 DIAGNOSTICS
             </h3>
             <button onClick={() => setShowDiagnostics(false)} className="text-white/40 hover:text-white px-2 py-1 text-xs">Close</button>
           </div>
@@ -70,6 +70,10 @@ export function CatalogPage() {
               <span className="text-red-400 text-right max-w-[150px] truncate">
                 {trendingError ? (trendingError as any).message : "NONE"}
               </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-white/60">BUILD VER:</span>
+              <span className="text-yellow-400">2026-04-21 05:04 AM</span>
             </div>
             <div className="flex justify-between">
               <span className="text-white/60">DEVICE AGENT:</span>

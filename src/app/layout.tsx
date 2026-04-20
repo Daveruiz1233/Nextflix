@@ -46,6 +46,23 @@ export default function RootLayout({
                   .then(reg => console.log('[Shield] Pre-armed:', reg.scope))
                   .catch(err => console.error('[Shield] Pre-arm failed:', err));
               }
+
+              // 🕵️ EARLY BOOT LOGGER - Catch hidden crashes
+              window.onerror = function(msg, url, line, col, error) {
+                var div = document.createElement('div');
+                div.style.position = 'fixed';
+                div.style.top = '0';
+                div.style.left = '0';
+                div.style.width = '100%';
+                div.style.zIndex = '99999';
+                div.style.background = 'red';
+                div.style.color = 'white';
+                div.style.padding = '10px';
+                div.style.fontSize = '12px';
+                div.style.fontFamily = 'monospace';
+                div.innerHTML = 'CRITICAL BOOT ERROR: ' + msg + '<br>Line: ' + line;
+                document.body.appendChild(div);
+              };
             `,
           }}
         />

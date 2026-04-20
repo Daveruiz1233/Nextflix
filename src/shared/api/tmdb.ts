@@ -5,13 +5,13 @@ const API_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY || "";
 
 if (typeof window !== "undefined" && !API_KEY) {
   console.error(
-    "TMDB API key is missing! Please set NEXT_PUBLIC_TMDB_API_KEY in your .env.local file or GitHub Actions secrets."
+    "TMDB API key is missing! verify SECRET is named 'NEXT_PUBLIC_TMDB_API_KEY' in GitHub Settings -> Secrets -> Actions."
   );
 }
 
 async function tmdbFetch<T>(endpoint: string, params: Record<string, string> = {}): Promise<T> {
   if (!API_KEY) {
-    throw new Error("TMDB API key is missing. Please check your configuration.");
+    throw new Error("TMDB API Key missing in build bundle. Please check GitHub Secrets.");
   }
 
   const url = new URL(`${BASE_URL}${endpoint}`);
