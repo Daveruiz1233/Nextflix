@@ -103,7 +103,10 @@ export function SearchPage() {
               transition={{ duration: 0.4 }}
             >
               {items.length > 0 ? (
-                <MediaGrid items={items} />
+                <MediaGrid 
+                  items={items} 
+                  contentType={debouncedQuery ? undefined : activeTab}
+                />
               ) : (
                 <div className="flex flex-col items-center justify-center py-32 text-center">
                   <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-6">

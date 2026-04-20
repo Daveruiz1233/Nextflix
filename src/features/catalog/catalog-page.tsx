@@ -20,7 +20,10 @@ export function CatalogPage() {
   const hasData = !!(trending?.results?.length || popularMovies?.results?.length || popularTV?.results?.length);
 
   // Combine Pinoy movies and TV for a single row
-  const pinoyHits = [...(pinoyMovies?.results || []), ...(pinoyTV?.results || [])]
+  const pinoyHits = [
+    ...(pinoyMovies?.results || []).map(m => ({ ...m, media_type: "movie" as const })),
+    ...(pinoyTV?.results || []).map(t => ({ ...t, media_type: "tv" as const }))
+  ]
     .sort((a, b) => b.popularity - a.popularity)
     .slice(0, 20);
 
@@ -35,7 +38,7 @@ export function CatalogPage() {
       )}
 
       {/* Content area */}
-      <div className={cn("relative z-10 px-4 md:px-8 lg:px-12", hasData ? "-mt-16 md:-mt-20" : "pt-8")}>
+      <div className={cn("relative z-10 px-4 md:px-8 lg:px-12", hasData ? "mt-4 md:-mt-8 lg:-mt-12" : "pt-8")}>
         
         {/* API Key Missing Notice */}
         {!hasData && !trendingLoading && (
@@ -56,14 +59,6 @@ export function CatalogPage() {
 
         {hasData && (
           <div className="flex flex-col gap-10">
-            {/* Filipino Hits Row - Pinoy Power! */}
-            {pinoyHits.length > 0 && (
-              <MediaRow
-                title="Pinoy Power: Filipino Hits"
-                items={pinoyHits as MediaItem[]}
-              />
-            )}
-
             {popularMovies?.results && (
               <MediaRow
                 title="Popular Movies"
@@ -92,6 +87,14 @@ export function CatalogPage() {
               <MediaRow
                 title="Trending This Week"
                 items={trending.results.filter(i => i.media_type === "movie" || i.media_type === "tv")}
+              />
+            )}
+
+            {/* Filipino Hits Row - Pinoy Power at the bottom! */}
+            {pinoyHits.length > 0 && (
+              <MediaRow
+                title="Pinoy Power: Filipino Hits"
+                items={pinoyHits as MediaItem[]}
               />
             )}
           </div>

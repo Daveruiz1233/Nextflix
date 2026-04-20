@@ -21,7 +21,7 @@ export function LayoutWrapper({ children }: LayoutWrapperProps) {
   const isPlayerPage = pathname.startsWith("/watch");
 
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-nf-bg font-sans">
+    <div className="min-h-[100vh] min-h-[100dvh] flex flex-col bg-nf-bg font-sans">
       <Header />
       <Navigation />
 

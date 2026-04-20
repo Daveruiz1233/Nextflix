@@ -21,9 +21,7 @@ jobs:
         run: npm ci
         
       - name: Build Next.js
-        run: npm run build
-        env:
-          NEXT_PUBLIC_TMDB_API_KEY: ${{ secrets.NEXT_PUBLIC_TMDB_API_KEY }}
+        run: NEXT_PUBLIC_TMDB_API_KEY="${{ secrets.NEXT_PUBLIC_TMDB_API_KEY }}" npm run build
           
       - name: Set up JDK 21
         uses: actions/setup-java@v3
@@ -61,9 +59,7 @@ jobs:
         run: npm ci
         
       - name: Build Next.js
-        run: npm run build
-        env:
-          NEXT_PUBLIC_TMDB_API_KEY: ${{ secrets.NEXT_PUBLIC_TMDB_API_KEY }}
+        run: NEXT_PUBLIC_TMDB_API_KEY="${{ secrets.NEXT_PUBLIC_TMDB_API_KEY }}" npm run build
           
       - name: Capacitor Sync
         run: npx cap sync ios
@@ -124,25 +120,33 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v1.0.${{ github.run_number }}
-          name: Nextflix Shield v1.0.${{ github.run_number }}
+          name: Nextflix Shield v1.1.0-beta
           body: |
-            ## 🚀 Nextflix Mobile Leap
-            This release marks the first stable mobile build of the Nextflix Shield.
+            ## 🛡️ Nextflix Shield: The Mobile Firewall
+            This pre-release introduces the **Redirect Killer** system, designed to make streaming as clean and secure as possible on mobile devices.
             
-            ### ✨ Features
-            - **Native Shield (iOS/Android)**: Engine-level adblocking that kills redirects inside streaming iframes.
-            - **Stealth Service Worker**: Detects and mocks tracking requests.
-            - **Premium UI**: Optimized for mobile performance (iPhone 6s Plus).
+            ### ✨ What's New
+            - **Native Redirect Killer (iOS/Android)**: Built-in native firewall that kills unauthorized navigations at the OS level before they even load.
+            - **Premium UI Refinements**:
+              - Fixed Hero banner overlap issues on mobile.
+              - Polished Season Picker with improved visibility and glassmorphism.
+              - Optimized spacing for better handling on smaller screens (iPhone 6s Plus compatible).
+            - **Stealth Mode**: Improved ad-blocker stealth to bypass common "AdBlock detected" popups.
+            
+            ### 🏗️ Technical Improvements
+            - Faster Service Worker navigation interception.
+            - Resolved module resolution issues for smoother IDE development.
+            - Inline secret injection for safer builds.
             
             ### 📦 Artifacts
-            - `app-debug.apk`: Universal Android build.
+            - `app-debug.apk`: Universal Android build (Unsigned).
             - `Nextflix-Unsigned.ipa`: Unsigned iOS build for sideloading.
             
-            *Note: This is a personal and educational project.*
+            *Note: This is a beta pre-release for testing and educational purposes.*
           files: |
             app-debug.apk
             Nextflix-Unsigned.ipa
           draft: false
-          prerelease: false
+          prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

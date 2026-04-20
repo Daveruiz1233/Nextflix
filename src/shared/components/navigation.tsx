@@ -115,7 +115,10 @@ interface MobileDockProps {
 
 function MobileDock({ activePath }: MobileDockProps) {
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[100] px-4 pb-8 pt-2 h-auto lg:hidden">
+    <div 
+      className="fixed bottom-0 left-0 right-0 z-[100] px-4 pt-2 h-auto lg:hidden"
+      style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
+    >
       <div className={cn(
         "mx-auto max-w-sm rounded-full px-6 py-4 flex items-center justify-between shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10",
         "bg-[#0f0f17]/95 backdrop-blur-3xl" // Increased opacity and blur as requested

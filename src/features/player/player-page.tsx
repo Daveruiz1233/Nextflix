@@ -14,7 +14,7 @@ import { ContentType, MediaItem } from "@/shared/types/media";
 import { FullPageSpinner } from "@/shared/components";
 import { MediaRow } from "@/features/catalog/components/media-row";
 import {
-  SandboxedPlayer,
+  ShieldedPlayer,
   SourceSelector,
   SeasonDropdown,
   EpisodeGrid,
@@ -78,14 +78,14 @@ export function PlayerPage({ id, type }: PlayerPageProps) {
       <div className="min-h-[100dvh] bg-nf-bg pt-16">
 
         {/* Player — 40dvh */}
-        <SandboxedPlayer
+        <ShieldedPlayer
           src={embedUrl}
           iframeKey={iframeKey}
           layoutMode="stacked"
         />
 
         {/* Content below player */}
-        <div className="px-4 py-4 flex flex-col gap-5">
+        <div className="px-4 py-6 flex flex-col gap-7">
           {/* Title + metadata */}
           <PlayerMeta details={details} type={type} />
 
@@ -137,7 +137,7 @@ export function PlayerPage({ id, type }: PlayerPageProps) {
       <div className="flex gap-6 p-6 lg:p-10">
         {/* Left column — Player */}
         <div className="flex-1 min-w-0">
-          <SandboxedPlayer
+          <ShieldedPlayer
             src={embedUrl}
             iframeKey={iframeKey}
             layoutMode="side-by-side"
@@ -149,7 +149,7 @@ export function PlayerPage({ id, type }: PlayerPageProps) {
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.2 }}
-          className="w-[320px] lg:w-[380px] flex-shrink-0 flex flex-col gap-5 max-h-[calc(100dvh-5rem)] overflow-y-auto scrollbar-hide"
+          className="w-[320px] lg:w-[380px] flex-shrink-0 flex flex-col gap-7 max-h-[calc(100dvh-5rem)] overflow-y-auto scrollbar-hide"
         >
           {/* Title + metadata */}
           <PlayerMeta details={details} type={type} />

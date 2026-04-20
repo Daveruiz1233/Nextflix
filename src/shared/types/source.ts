@@ -3,6 +3,7 @@ import { ContentType } from "./media";
 export interface EmbedSource {
   id: string;
   label: string;
+  tag?: string;
   getUrl: (tmdbId: number, type: ContentType, season?: number, episode?: number) => string;
 }
 
@@ -12,6 +13,7 @@ export const SOURCES: EmbedSource[] = [
   {
     id: "vidsrc1",
     label: "VidSrc 1",
+    tag: "Best for Movies",
     getUrl: (id, type, s, e) => {
       const baseUrl = "https://vidsrcme.ru/embed";
       if (type === "tv" && s !== undefined && e !== undefined) {
@@ -30,6 +32,19 @@ export const SOURCES: EmbedSource[] = [
         return `https://vidsrc.cc/v2/embed/tv/${id}/${s}/${e}`;
       }
       return `https://vidsrc.cc/v2/embed/${type}/${id}`;
+    },
+  },
+  // ─── Videasy ──────────────────────────────────────────
+  // Docs: https://www.videasy.net/docs
+  {
+    id: "videasy",
+    label: "Videasy",
+    tag: "Best for TV",
+    getUrl: (id, type, s, e) => {
+      if (type === "tv" && s !== undefined && e !== undefined) {
+        return `https://player.videasy.net/tv/${id}/${s}/${episodeToFixed(e)}`;
+      }
+      return `https://player.videasy.net/movie/${id}`;
     },
   },
   // ─── VidLink ─────────────────────────────────────────
@@ -65,3 +80,8 @@ export const SOURCES: EmbedSource[] = [
     },
   },
 ];
+
+// Helper to handle episode padding if needed, although Videasy seems fine with raw integers.
+function episodeToFixed(e: number): string {
+  return e.toString();
+}

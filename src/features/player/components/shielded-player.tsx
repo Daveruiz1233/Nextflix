@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * ShieldedPlayer: A secure, ad-blocking wrapper for streaming iframes.
+ * Implements native-level redirect protection and stealth engine monitoring.
+ */
+
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { Spinner } from "@/shared/components";
@@ -7,14 +12,14 @@ import { AlertTriangle, RefreshCw, Shield, ShieldCheck } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { LayoutMode } from "@/shared/hooks";
 
-interface SandboxedPlayerProps {
+interface ShieldedPlayerProps {
   src: string;
   iframeKey: string | number;
   layoutMode: LayoutMode;
   className?: string;
 }
 
-export function SandboxedPlayer({ src, iframeKey, layoutMode, className }: SandboxedPlayerProps) {
+export function ShieldedPlayer({ src, iframeKey, layoutMode, className }: ShieldedPlayerProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [blockedCount, setBlockedCount] = useState(0);
@@ -40,38 +45,17 @@ export function SandboxedPlayer({ src, iframeKey, layoutMode, className }: Sandb
   }, []);
 
   useEffect(() => {
-    // Check if Service Worker is already controlling the page
+    // 1) Check initial armed state
     if (navigator.serviceWorker?.controller) {
       setIsShieldArmed(true);
     }
+    
+    // Check if main engine is active
+    import("@/shared/lib/adblock-engine").then(({ adblockEngine }) => {
+      if (adblockEngine) setIsShieldArmed(true);
+    });
 
-    // 1) "Silent Proxy" Overwrite
-    // Instead of null, we return a Mock Window object to trick anti-adblockers
-    const originalOpen = window.open;
-    window.open = function (...args: Parameters<typeof window.open>) {
-      const url = typeof args[0] === "string" ? args[0] : args[0]?.toString() || "";
-      
-      // Always allow local app routes
-      if (url.startsWith(window.location.origin) || url.startsWith("/")) {
-        return originalOpen.apply(window, args);
-      }
-
-      console.warn("[Shield] Neutralized popup attempt:", url);
-      incrementBlocked();
-
-      // Return a Mock Window object (The Deception)
-      return {
-        closed: false,
-        name: "nextflix_shield_proxy",
-        close: () => { console.log("[Shield] Suppressed window.close()"); },
-        focus: () => { console.log("[Shield] Suppressed window.focus()"); },
-        blur: () => { console.log("[Shield] Suppressed window.blur()"); },
-        postMessage: () => { console.log("[Shield] Suppressed postMessage()"); },
-        opener: window,
-      } as unknown as Window;
-    };
-
-    // 2) Listen for Stealth Shield signals
+    // 2) Listen for signals (Both SW and Main Thread)
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === "AD_BLOCKED") {
         incrementBlocked();
@@ -79,7 +63,13 @@ export function SandboxedPlayer({ src, iframeKey, layoutMode, className }: Sandb
       }
     };
 
+    const handleMainThreadBlock = (event: any) => {
+      incrementBlocked();
+      setIsShieldArmed(true);
+    };
+
     navigator.serviceWorker?.addEventListener("message", handleMessage);
+    window.addEventListener("AD_BLOCKED", handleMainThreadBlock);
 
     // 3) Kill external legacy link click redirects
     const handleLinkClick = (e: MouseEvent) => {
@@ -106,8 +96,8 @@ export function SandboxedPlayer({ src, iframeKey, layoutMode, className }: Sandb
     window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
-      window.open = originalOpen;
       navigator.serviceWorker?.removeEventListener("message", handleMessage);
+      window.removeEventListener("AD_BLOCKED", handleMainThreadBlock);
       document.removeEventListener("click", handleLinkClick, true);
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
@@ -149,8 +139,8 @@ export function SandboxedPlayer({ src, iframeKey, layoutMode, className }: Sandb
             animate={{ y: 0, opacity: 1 }}
             className={cn(
               "absolute top-4 left-4 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-md border text-xs font-bold shadow-xl transition-colors duration-500",
-              blockedCount > 0 
-                ? "bg-green-600/90 border-green-400/30 text-white" 
+              blockedCount > 0
+                ? "bg-green-600/90 border-green-400/30 text-white"
                 : "bg-nf-accent/80 border-white/20 text-white/90"
             )}
           >
@@ -202,6 +192,8 @@ export function SandboxedPlayer({ src, iframeKey, layoutMode, className }: Sandb
         allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
         allowFullScreen
         referrerPolicy="no-referrer"
+        scrolling="no"
+        frameBorder={0}
         className="w-full h-full border-0 absolute inset-0"
         onLoad={handleLoad}
         onError={handleError}

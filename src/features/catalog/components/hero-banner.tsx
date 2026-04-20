@@ -33,7 +33,7 @@ export function HeroBanner({ items }: HeroBannerProps) {
   const type = current.media_type || "movie";
 
   return (
-    <div className="relative w-full h-[50dvh] md:h-[60dvh] lg:h-[70dvh] overflow-hidden">
+    <div className="relative w-full h-[50vh] h-[50dvh] md:h-[60dvh] lg:h-[70dvh] overflow-hidden">
       <AnimatePresence mode="wait">
         <motion.div
           key={current.id}

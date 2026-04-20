@@ -35,10 +35,10 @@ export function SeasonDropdown({ seasons, selected, onChange, className }: Seaso
 
   return (
     <div ref={dropdownRef} className={cn("relative", className)}>
-      <h3 className="text-sm font-medium text-nf-text-muted mb-2">Season</h3>
+      <h3 className="text-sm font-medium text-nf-text-muted mb-3">Season</h3>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between w-full max-w-[240px] px-4 py-3 rounded-lg glass text-white text-sm font-medium hover:bg-white/10 transition-colors min-h-[44px]"
+        className="flex items-center justify-between w-full max-w-[240px] px-4 py-3 rounded-lg glass text-white text-sm font-medium hover:bg-white/10 transition-colors min-h-[44px] shadow-sm"
       >
         <span>{currentSeason?.name || `Season ${selected}`}</span>
         <ChevronDown
@@ -56,7 +56,7 @@ export function SeasonDropdown({ seasons, selected, onChange, className }: Seaso
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="absolute top-full mt-1 left-0 w-full max-w-[240px] max-h-[300px] overflow-y-auto rounded-lg glass-heavy z-50 py-1"
+            className="absolute top-full mt-2 left-0 w-full max-w-[240px] max-h-[300px] overflow-y-auto rounded-lg glass-dropdown z-50 py-1"
           >
             {validSeasons.map((season) => (
               <button

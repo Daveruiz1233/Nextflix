@@ -18,7 +18,11 @@ export function MediaCard({ item, contentType, index = 0, className }: MediaCard
   const title = getTitle(item);
   const year = getReleaseYear(item);
   const posterUrl = getPosterUrl(item.poster_path, "w342");
-  const type = contentType || item.media_type || "movie";
+  
+  // Heuristic for media type if not provided:
+  // TV shows usually have 'name' and 'first_air_date' instead of 'title' and 'release_date'
+  const isTV = !!(item.name || item.first_air_date);
+  const type = contentType || item.media_type || (isTV ? "tv" : "movie");
 
   return (
     <Link href={`/details?type=${type}&id=${item.id}`} className={cn("block group", className)}>

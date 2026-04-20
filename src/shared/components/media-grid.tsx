@@ -6,10 +6,11 @@ import { MediaItem } from "@/shared/types/media";
 
 interface MediaGridProps {
   items: MediaItem[];
+  contentType?: "movie" | "tv";
   className?: string;
 }
 
-export function MediaGrid({ items, className }: MediaGridProps) {
+export function MediaGrid({ items, contentType, className }: MediaGridProps) {
   if (!items || items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-nf-text-dim">
@@ -27,7 +28,7 @@ export function MediaGrid({ items, className }: MediaGridProps) {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.3, delay: index * 0.05 }}
         >
-          <MediaCard item={item} />
+          <MediaCard item={item} contentType={contentType} />
         </motion.div>
       ))}
     </div>

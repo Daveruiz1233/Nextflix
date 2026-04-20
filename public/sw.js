@@ -80,23 +80,35 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   const hostname = url.hostname.toLowerCase();
+  const isNavigation = event.request.mode === "navigate" || event.request.destination === "document";
 
   // Don't block our own scripts or the filter binary
   if (hostname === self.location.hostname) return;
 
-  if (isBlocked(hostname)) {
-    console.warn(`[Nextflix Shield] Blocked (Stealth): ${hostname}`);
+  // Intercept all requests (XHR, Image, Script) and especially Redirect Navigations
+  if (isBlocked(hostname) || 
+      hostname.includes("rtmark.net") || 
+      hostname.includes("104processors.net") || 
+      hostname.includes("yandex.ru")) {
+    
+    console.warn(`[Nextflix Shield] Blocked ${isNavigation ? 'REDIRECT' : 'REQUEST'}: ${hostname}`);
     
     // Notify clients to increment counter
     reportBlocked(hostname);
 
-    // Stealth Mode: Return 200 OK with empty body 
-    // This tricks ad-score and anti-adblockers into thinking the tracker loaded.
+    // If it's a redirect navigation, we return a 204 No Content or empty 200
+    // Returning 204 effectively kills the navigation without leaving the current page.
+    if (isNavigation) {
+        event.respondWith(new Response(null, { status: 204, statusText: "No Content" }));
+        return;
+    }
+
+    // Stealth Mode for scripts/trackers: Return 200 OK with empty body 
     event.respondWith(
-      new Response("", {
+      new Response("/* Shielded */", {
         status: 200,
         statusText: "OK",
-        headers: { "Content-Type": "text/plain" }
+        headers: { "Content-Type": "application/javascript" }
       })
     );
   }
