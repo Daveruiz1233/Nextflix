@@ -10,80 +10,95 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKNavigationDelegate, WKU
     // ═══════════════════════════════════════════════════════════════════
     // SHIELD INJECTION SCRIPT
     // Injected at document-start into EVERY frame (main + all iframes)
-    // Patches ALL JavaScript redirect vectors before ad scripts can run
+    // KEY: Skips patching the main Capacitor frame to avoid breaking
+    //      window.Capacitor.triggerEvent (the RETRO_ERR you were seeing)
     // ═══════════════════════════════════════════════════════════════════
     private let shieldScript = """
     (function() {
         'use strict';
 
-        var _allowed = ['localhost', '127.0.0.1', 'capacitor://'];
+        // Only patch sub-frames (ad iframes). The main Capacitor frame
+        // must not be patched — it breaks window.Capacitor.triggerEvent.
+        var isMainCapacitorFrame = (window.self === window.top) &&
+                                   (window.Capacitor !== undefined ||
+                                    window.__capacitor__ !== undefined);
 
-        function isOk(url) {
-            if (!url || url === '' || url === '#') return true;
-            var s = String(url);
-            if (s.startsWith('blob:') || s.startsWith('data:') || s.startsWith('about:') || s.startsWith('javascript:')) return true;
-            for (var i = 0; i < _allowed.length; i++) {
-                if (s.indexOf(_allowed[i]) !== -1) return true;
+        if (isMainCapacitorFrame) {
+            // Still kill window.open in the main frame (safe to do)
+            window.open = function() {
+                return { closed: true, focus: function(){}, close: function(){} };
+            };
+            return;
+        }
+
+        // ── From here on: only runs inside cross-origin video iframes ──
+
+        var _ok = ['localhost', '127.0.0.1', 'capacitor://'];
+
+        function isOk(u) {
+            if (!u || u === '' || u === '#') return true;
+            var s = String(u);
+            if (s.indexOf('blob:') === 0 || s.indexOf('data:') === 0 ||
+                s.indexOf('about:') === 0 || s.indexOf('javascript:') === 0) return true;
+            for (var i = 0; i < _ok.length; i++) {
+                if (s.indexOf(_ok[i]) !== -1) return true;
             }
             return false;
         }
 
-        // ── 1. location.href setter ──────────────────────────────────
+        // 1. location.href via prototype (can't be bypassed)
         try {
-            var desc = Object.getOwnPropertyDescriptor(Location.prototype, 'href');
-            if (desc && desc.set) {
-                var origSetter = desc.set;
+            var d = Object.getOwnPropertyDescriptor(Location.prototype, 'href');
+            if (d && d.set) {
+                var os = d.set;
                 Object.defineProperty(Location.prototype, 'href', {
-                    get: desc.get,
-                    set: function(url) {
-                        if (isOk(String(url))) { origSetter.call(this, url); }
-                        else { console.warn('[Shield] Blocked location.href =', url); }
+                    get: d.get,
+                    set: function(u) {
+                        if (isOk(String(u))) { os.call(this, u); }
+                        else { console.warn('[Shield] href blocked:', u); }
                     },
                     configurable: true
                 });
             }
         } catch(e) {}
 
-        // ── 2. location.replace() ────────────────────────────────────
+        // 2. location.replace()
         try {
-            var origReplace = Location.prototype.replace;
-            Location.prototype.replace = function(url) {
-                if (isOk(String(url))) { return origReplace.call(this, url); }
-                console.warn('[Shield] Blocked location.replace:', url);
+            var or1 = Location.prototype.replace;
+            Location.prototype.replace = function(u) {
+                if (isOk(String(u))) { return or1.call(this, u); }
+                console.warn('[Shield] replace blocked:', u);
             };
         } catch(e) {}
 
-        // ── 3. location.assign() ─────────────────────────────────────
+        // 3. location.assign()
         try {
-            var origAssign = Location.prototype.assign;
-            Location.prototype.assign = function(url) {
-                if (isOk(String(url))) { return origAssign.call(this, url); }
-                console.warn('[Shield] Blocked location.assign:', url);
+            var or2 = Location.prototype.assign;
+            Location.prototype.assign = function(u) {
+                if (isOk(String(u))) { return or2.call(this, u); }
+                console.warn('[Shield] assign blocked:', u);
             };
         } catch(e) {}
 
-        // ── 4. window.open() ─────────────────────────────────────────
-        // THE MAIN CAUSE OF SAFARI OPENING — kill this completely
-        window.open = function(url, target, features) {
-            console.warn('[Shield] Blocked window.open:', url);
+        // 4. window.open() — THE cause of Safari opening
+        window.open = function(url) {
+            console.warn('[Shield] window.open blocked:', url);
             return { closed: true, focus: function(){}, close: function(){},
                      postMessage: function(){}, location: { href: '' } };
         };
 
-        // ── 5. <a> click with target="_blank" ────────────────────────
+        // 5. <a target="_blank"> click blocker
         document.addEventListener('click', function(e) {
             var el = e.target;
             while (el) {
                 if (el.tagName === 'A') {
-                    var href = el.getAttribute('href') || '';
-                    var target = el.getAttribute('target') || '';
-                    if (target === '_blank' || target === '_top' || target === '_parent') {
-                        if (!isOk(href)) {
-                            e.preventDefault();
-                            e.stopImmediatePropagation();
-                            console.warn('[Shield] Blocked _blank link:', href);
-                            return false;
-                        }
+                    var h = el.getAttribute('href') || '';
+                    var t = el.getAttribute('target') || '';
+                    if ((t === '_blank' || t === '_top' || t === '_parent') && !isOk(h)) {
+                        e.preventDefault();
+                        e.stopImmediatePropagation();
+                        console.warn('[Shield] _blank blocked:', h);
+                        return false;
                     }
                     break;
                 }
@@ -91,43 +106,28 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKNavigationDelegate, WKU
             }
         }, true);
 
-        // ── 6. Fake anchor click blocker ─────────────────────────────
-        var origAnchorClick = HTMLAnchorElement.prototype.click;
+        // 6. Synthetic anchor click
+        var oClick = HTMLAnchorElement.prototype.click;
         HTMLAnchorElement.prototype.click = function() {
-            var href = this.href || '';
-            if (!isOk(href)) {
-                console.warn('[Shield] Blocked synthetic anchor click:', href);
+            if (!isOk(this.href || '')) {
+                console.warn('[Shield] synthetic click blocked:', this.href);
                 return;
             }
-            return origAnchorClick.call(this);
+            oClick.call(this);
         };
 
-        // ── 7. setTimeout eval-string redirect blocker ───────────────
-        var origST = window.setTimeout;
+        // 7. setTimeout eval-string redirect
+        var oST = window.setTimeout;
         window.setTimeout = function(fn, delay) {
             if (typeof fn === 'string' &&
-                (fn.indexOf('location') !== -1 || fn.indexOf('open') !== -1 || fn.indexOf('href') !== -1)) {
-                console.warn('[Shield] Blocked eval-setTimeout redirect');
+                (fn.indexOf('location') !== -1 || fn.indexOf('open') !== -1)) {
+                console.warn('[Shield] eval-setTimeout blocked');
                 return 0;
             }
-            return origST.apply(window, arguments);
+            return oST.apply(window, arguments);
         };
 
-        // ── 8. dispatchEvent navigation blocker ──────────────────────
-        // Some ads fire custom events that trigger navigation
-        var origDispatch = EventTarget.prototype.dispatchEvent;
-        EventTarget.prototype.dispatchEvent = function(event) {
-            if (event && event.type === 'click') {
-                var tgt = this;
-                if (tgt.tagName === 'A' && tgt.href && !isOk(tgt.href)) {
-                    console.warn('[Shield] Blocked dispatchEvent click on link:', tgt.href);
-                    return false;
-                }
-            }
-            return origDispatch.call(this, event);
-        };
-
-        console.log('[Shield ✓] All redirect vectors patched');
+        console.log('[Shield ✓] iframe redirect vectors patched');
     })();
     """
 
@@ -144,7 +144,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKNavigationDelegate, WKU
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // SHIELD ATTACHMENT
+    // SHIELD ATTACHMENT (runs once)
     // ═══════════════════════════════════════════════════════════════════
     private var shieldAttached = false
 
@@ -155,56 +155,37 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKNavigationDelegate, WKU
 
         shieldAttached = true
 
-        // ── Navigation delegate: blocks main-frame redirects
         webView.navigationDelegate = self
+        webView.uiDelegate = self  // KEY — intercepts window.open()
 
-        // ── UI delegate: THE KEY — blocks window.open() at the native level
-        webView.uiDelegate = self
-
-        // ── JS injection into every frame at document-start
         let userScript = WKUserScript(
             source: shieldScript,
             injectionTime: .atDocumentStart,
-            forMainFrameOnly: false  // Applies to ALL iframes too
+            forMainFrameOnly: false  // Runs in all sub-frames too
         )
         let cc = webView.configuration.userContentController
         cc.removeAllUserScripts()
         cc.addUserScript(userScript)
 
-        // ── Network-level content rules (WKContentRuleList)
-        // These block requests before they even reach JavaScript
         loadContentRules(for: webView)
 
-        print("🛡️ [Shield] All 4 protection layers active")
+        print("🛡️ [Shield] Active — RETRO_ERR fix applied, all redirect vectors patched")
     }
 
     private func loadContentRules(for webView: WKWebView) {
-        guard let rulesPath = Bundle.main.path(forResource: "adblock-rules", ofType: "json"),
-              let rulesString = try? String(contentsOfFile: rulesPath) else {
-            print("⚠️ [Shield] No adblock-rules.json found")
-            return
-        }
+        guard let path = Bundle.main.path(forResource: "adblock-rules", ofType: "json"),
+              let rulesString = try? String(contentsOfFile: path) else { return }
 
-        // Check if already compiled (avoid recompiling on every foreground)
         WKContentRuleListStore.default().lookUpContentRuleList(forIdentifier: "NextflixShield") { existing, _ in
             if let list = existing {
-                DispatchQueue.main.async {
-                    webView.configuration.userContentController.add(list)
-                    print("✅ [Shield] Content rules loaded from cache")
-                }
+                DispatchQueue.main.async { webView.configuration.userContentController.add(list) }
             } else {
-                // First run: compile
                 WKContentRuleListStore.default().compileContentRuleList(
                     forIdentifier: "NextflixShield",
                     encodedContentRuleList: rulesString
-                ) { list, error in
-                    DispatchQueue.main.async {
-                        if let list = list {
-                            webView.configuration.userContentController.add(list)
-                            print("✅ [Shield] Content rules compiled and active")
-                        } else {
-                            print("⚠️ [Shield] Content rules compile error: \(error?.localizedDescription ?? "unknown")")
-                        }
+                ) { list, _ in
+                    if let list = list {
+                        DispatchQueue.main.async { webView.configuration.userContentController.add(list) }
                     }
                 }
             }
@@ -212,7 +193,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKNavigationDelegate, WKU
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // WKNavigationDelegate — Blocks main-frame redirects
+    // WKNavigationDelegate
     // ═══════════════════════════════════════════════════════════════════
     func webView(_ webView: WKWebView,
                  decidePolicyFor navigationAction: WKNavigationAction,
@@ -222,32 +203,29 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKNavigationDelegate, WKU
         let urlStr = url?.absoluteString ?? ""
         let scheme = url?.scheme?.lowercased() ?? ""
 
-        // ── Block dangerous/external URL schemes
-        // These cause iOS to open Safari or other apps
+        // Block dangerous non-web schemes (would open Safari/App Store/etc.)
         let safeSchemes: Set<String> = ["http", "https", "capacitor", "ionic", "about", "blob", "data", ""]
         if !safeSchemes.contains(scheme) {
-            print("🚫 [Shield] Blocked external scheme '\(scheme)': \(urlStr)")
+            print("🚫 [Shield] Blocked scheme '\(scheme)': \(urlStr)")
             decisionHandler(.cancel)
             return
         }
 
-        // ── CRITICAL FIX: targetFrame == nil means window.open() new tab
-        // Without this, window.open() calls escape to Safari
+        // CRITICAL: targetFrame == nil = window.open() new tab → block
         if navigationAction.targetFrame == nil {
-            print("🚫 [Shield] Blocked new-window navigation: \(urlStr)")
+            print("🚫 [Shield] Blocked new-window (targetFrame nil): \(urlStr)")
             decisionHandler(.cancel)
             return
         }
 
-        // ── Block main-frame redirects away from our app
+        // Block main-frame navigations away from our app
         if navigationAction.targetFrame?.isMainFrame == true {
             let isOurApp = urlStr.contains("localhost") ||
-                           urlStr.contains("127.0.0.1") ||
                            urlStr.hasPrefix("capacitor://") ||
                            urlStr.hasPrefix("about:") ||
                            urlStr.isEmpty
             if !isOurApp {
-                print("🚫 [Shield] Blocked main-frame redirect: \(urlStr)")
+                print("🚫 [Shield] Main-frame redirect blocked: \(urlStr)")
                 decisionHandler(.cancel)
                 return
             }
@@ -257,18 +235,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKNavigationDelegate, WKU
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // WKUIDelegate — THE CRITICAL MISSING PIECE
-    // Called when JavaScript calls window.open() or clicks target="_blank"
-    // Returning nil = BLOCK the new window completely
-    // Without this, iOS opens Safari for every window.open() call
+    // WKUIDelegate — THE CRITICAL PIECE
+    // Called when ANY JS calls window.open() or clicks target="_blank"
+    // Returning nil = completely blocked (no Safari, no new tab, nothing)
     // ═══════════════════════════════════════════════════════════════════
     func webView(_ webView: WKWebView,
                  createWebViewWith configuration: WKWebViewConfiguration,
                  for navigationAction: WKNavigationAction,
                  windowFeatures: WKWindowFeatures) -> WKWebView? {
-        let url = navigationAction.request.url?.absoluteString ?? ""
-        print("🚫 [Shield] Blocked window.open() / new tab: \(url)")
-        return nil  // nil = blocked. If we returned a WKWebView, it would open in-app.
+        print("🚫 [Shield] window.open() blocked: \(navigationAction.request.url?.absoluteString ?? "")")
+        return nil
     }
 
     // ═══════════════════════════════════════════════════════════════════

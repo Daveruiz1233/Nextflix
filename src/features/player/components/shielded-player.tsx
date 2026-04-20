@@ -1,14 +1,20 @@
 "use client";
 
 /**
- * ShieldedPlayer: A secure, ad-blocking wrapper for streaming iframes.
- * Implements native-level redirect protection and stealth engine monitoring.
+ * ShieldedPlayer: Secure streaming iframe with CSS fullscreen.
+ *
+ * Uses CSS position:fixed fullscreen instead of the browser Fullscreen API,
+ * so iOS doesn't hand off to AVKit (which shows different controls).
+ * The player looks identical whether "fullscreen" or not.
  */
 
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { Spinner } from "@/shared/components";
-import { AlertTriangle, RefreshCw, Shield, ShieldCheck } from "lucide-react";
+import {
+  AlertTriangle, RefreshCw, Shield, ShieldCheck,
+  Maximize2, Minimize2
+} from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { LayoutMode } from "@/shared/hooks";
 
@@ -24,38 +30,54 @@ export function ShieldedPlayer({ src, iframeKey, layoutMode, className }: Shield
   const [isError, setIsError] = useState(false);
   const [blockedCount, setBlockedCount] = useState(0);
   const [isShieldArmed, setIsShieldArmed] = useState(false);
+
+  // CSS-based fullscreen — keeps VidSrc's own controls consistent
+  // Does NOT trigger iOS AVKit takeover (unlike the browser Fullscreen API)
+  const [isCSSFullscreen, setIsCSSFullscreen] = useState(false);
+
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const handleLoad = () => {
-    setIsLoading(false);
-  };
+  const handleLoad = () => setIsLoading(false);
+  const handleError = () => { setIsLoading(false); setIsError(true); };
+  const handleRetry = () => { setIsLoading(true); setIsError(false); };
 
-  const handleError = () => {
-    setIsLoading(false);
-    setIsError(true);
-  };
+  const incrementBlocked = useCallback(() => setBlockedCount((c) => c + 1), []);
 
-  const handleRetry = () => {
-    setIsLoading(true);
-    setIsError(false);
-  };
+  // Toggle CSS fullscreen
+  const toggleFullscreen = useCallback(() => {
+    setIsCSSFullscreen((prev) => {
+      const next = !prev;
+      // Lock/unlock body scroll
+      document.body.style.overflow = next ? "hidden" : "";
+      return next;
+    });
+  }, []);
 
-  const incrementBlocked = useCallback(() => {
-    setBlockedCount((c) => c + 1);
+  // Escape key exits fullscreen
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isCSSFullscreen) {
+        setIsCSSFullscreen(false);
+        document.body.style.overflow = "";
+      }
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [isCSSFullscreen]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => { document.body.style.overflow = ""; };
   }, []);
 
   useEffect(() => {
-    // 1) Check initial armed state
-    if (navigator.serviceWorker?.controller) {
-      setIsShieldArmed(true);
-    }
-    
-    // Check if main engine is active
+    if (navigator.serviceWorker?.controller) setIsShieldArmed(true);
+
     import("@/shared/lib/adblock-engine").then(({ adblockEngine }) => {
       if (adblockEngine) setIsShieldArmed(true);
-    });
+    }).catch(() => {});
 
-    // 2) Listen for signals (Both SW and Main Thread)
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === "AD_BLOCKED") {
         incrementBlocked();
@@ -63,7 +85,7 @@ export function ShieldedPlayer({ src, iframeKey, layoutMode, className }: Shield
       }
     };
 
-    const handleMainThreadBlock = (event: any) => {
+    const handleMainThreadBlock = () => {
       incrementBlocked();
       setIsShieldArmed(true);
     };
@@ -71,7 +93,7 @@ export function ShieldedPlayer({ src, iframeKey, layoutMode, className }: Shield
     navigator.serviceWorker?.addEventListener("message", handleMessage);
     window.addEventListener("AD_BLOCKED", handleMainThreadBlock);
 
-    // 3) Kill external legacy link click redirects
+    // Kill external link redirects from OUR page layer
     const handleLinkClick = (e: MouseEvent) => {
       const anchor = (e.target as HTMLElement).closest("a");
       if (anchor && anchor.target === "_blank") {
@@ -79,37 +101,35 @@ export function ShieldedPlayer({ src, iframeKey, layoutMode, className }: Shield
         if (!href.startsWith(window.location.origin)) {
           e.preventDefault();
           e.stopPropagation();
-          console.warn("[Shield] Blocked redirect link:", href);
           incrementBlocked();
         }
       }
     };
-
     document.addEventListener("click", handleLinkClick, true);
-
-    // 4) Top-Level Navigation Guard
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      // If we are on a watch page, confirm before leaving to prevent malicious redirects
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
       navigator.serviceWorker?.removeEventListener("message", handleMessage);
       window.removeEventListener("AD_BLOCKED", handleMainThreadBlock);
       document.removeEventListener("click", handleLinkClick, true);
-      window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, [iframeKey, incrementBlocked]);
 
   return (
     <div
+      ref={containerRef}
       className={cn(
+        // Base (non-fullscreen)
         "relative w-full overflow-hidden rounded-xl bg-black shadow-2xl ring-1 ring-white/10",
-        layoutMode === "stacked"
-          ? "h-[45dvh]"
-          : "aspect-video max-w-[1100px] mx-auto",
+        // Normal sizing
+        !isCSSFullscreen && layoutMode === "stacked" && "h-[45dvh]",
+        !isCSSFullscreen && layoutMode !== "stacked" && "aspect-video max-w-[1100px] mx-auto",
+        // CSS Fullscreen: fixed overlay covering entire screen
+        // This is the key — no AVKit, same VidSrc controls, consistent look
+        isCSSFullscreen && [
+          "fixed inset-0 z-[9999]",
+          "w-screen h-[100dvh]",
+          "rounded-none ring-0",
+        ],
         className
       )}
     >
@@ -131,14 +151,14 @@ export function ShieldedPlayer({ src, iframeKey, layoutMode, className }: Shield
         </motion.div>
       )}
 
-      {/* Persistent Shield Badge */}
+      {/* Shield badge */}
       <AnimatePresence>
         {isShieldArmed && (
           <motion.div
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             className={cn(
-              "absolute top-4 left-4 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-md border text-xs font-bold shadow-xl transition-colors duration-500",
+              "absolute top-3 left-3 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-full backdrop-blur-md border text-xs font-bold shadow-xl transition-colors duration-500",
               blockedCount > 0
                 ? "bg-green-600/90 border-green-400/30 text-white"
                 : "bg-nf-accent/80 border-white/20 text-white/90"
@@ -146,18 +166,41 @@ export function ShieldedPlayer({ src, iframeKey, layoutMode, className }: Shield
           >
             {blockedCount > 0 ? (
               <>
-                <ShieldCheck className="w-3.5 h-3.5 fill-white/20" />
-                <span className="tabular-nums animate-pulse">{blockedCount} ADS BLOCKED</span>
+                <ShieldCheck className="w-3 h-3 fill-white/20" />
+                <span className="tabular-nums">{blockedCount} BLOCKED</span>
               </>
             ) : (
               <>
-                <Shield className="w-3.5 h-3.5 fill-white/20" />
-                <span>SHIELD PROTECTED</span>
+                <Shield className="w-3 h-3 fill-white/20" />
+                <span>PROTECTED</span>
               </>
             )}
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* CSS Fullscreen toggle button */}
+      {/* Position: top-right corner, always visible, no AVKit handoff */}
+      {!isLoading && !isError && (
+        <button
+          onClick={toggleFullscreen}
+          aria-label={isCSSFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+          className={cn(
+            "absolute z-20 flex items-center justify-center",
+            "w-8 h-8 rounded-lg",
+            "bg-black/60 backdrop-blur-sm border border-white/10",
+            "text-white hover:bg-black/80 active:scale-95",
+            "transition-all duration-150",
+            // Position: top-right, below shield badge if armed
+            "top-3 right-3"
+          )}
+        >
+          {isCSSFullscreen
+            ? <Minimize2 className="w-4 h-4" />
+            : <Maximize2 className="w-4 h-4" />
+          }
+        </button>
+      )}
 
       {/* Error overlay */}
       {isError && (
@@ -185,6 +228,7 @@ export function ShieldedPlayer({ src, iframeKey, layoutMode, className }: Shield
         </motion.div>
       )}
 
+      {/* The iframe itself */}
       <iframe
         ref={iframeRef}
         key={iframeKey}

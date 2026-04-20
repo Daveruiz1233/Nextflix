@@ -49,6 +49,11 @@ public class MainActivity extends BridgeActivity {
         "(function(){" +
         "'use strict';" +
 
+        // Skip main Capacitor frame — only patch video iframes
+        // Prevents window.Capacitor.triggerEvent error (RETRO_ERR)
+        "var isCapMain=(window.self===window.top)&&(typeof window.Capacitor!=='undefined'||typeof window.__capacitor__!=='undefined');" +
+        "if(isCapMain){window.open=function(){return{closed:true,focus:function(){},close:function(){}};};return;}" +
+
         // Allowed URL checker
         "var _ok=['localhost','127.0.0.1','capacitor://'];" +
         "function isOk(u){" +
@@ -86,7 +91,7 @@ public class MainActivity extends BridgeActivity {
         // 4. window.open() — THE MAIN CAUSE of browser opening
         "window.open=function(u,t,f){" +
         "  console.warn('[Shield] window.open blocked:',u);" +
-        "  if(AndroidShield)AndroidShield.log('OPEN:'+u);" +
+        "  if(typeof AndroidShield!=='undefined')AndroidShield.log('OPEN:'+u);" +
         "  return{closed:true,focus:function(){},close:function(){},postMessage:function(){}};" +
         "};" +
 
@@ -124,7 +129,7 @@ public class MainActivity extends BridgeActivity {
         "  return oST.apply(this,arguments);" +
         "};" +
 
-        "console.log('[Shield \u2713] Android injection active');" +
+        "console.log('[Shield \u2713] Android iframe injection active');" +
         "})();";
 
     private static final WebResourceResponse EMPTY_OK =
