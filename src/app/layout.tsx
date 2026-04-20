@@ -40,25 +40,13 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              // Nextflix Shield — Operation Retro
+              // Nextflix Shield — Service Worker Pre-arm
               (function() {
                 if ('serviceWorker' in navigator) {
                   navigator.serviceWorker.register('/sw.js', { scope: '/' })
-                    .then(function(reg) { console.log('[Shield] Pre-armed:', reg.scope); })
-                    .catch(function(err) { console.error('[Shield] Pre-arm failed:', err); });
+                    .then(function(reg) { console.log('[Shield] SW armed:', reg.scope); })
+                    .catch(function(err) { console.warn('[Shield] SW failed:', err); });
                 }
-
-                window.onerror = function(msg, url, line, col, error) {
-                  var div = document.createElement('div');
-                  div.style.position = 'fixed';
-                  div.style.top = '0'; div.style.left = '0';
-                  div.style.width = '100%'; div.style.zIndex = '99999';
-                  div.style.background = 'red'; div.style.color = 'white';
-                  div.style.padding = '10px'; div.style.fontSize = '12px';
-                  div.style.fontFamily = 'monospace';
-                  div.innerHTML = 'RETRO_ERR: ' + msg + '<br>Line: ' + line;
-                  document.body.appendChild(div);
-                };
               })();
             `,
           }}

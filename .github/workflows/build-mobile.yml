@@ -141,30 +141,26 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.${{ github.run_number }}
-          name: Nextflix Shield v1.1.5 — AdGuard Filter Engine
+          tag_name: v3.0.${{ github.run_number }}
+          name: Nextflix Shield v3.0 — Nuclear Isolation
           body: |
-            ## 🛡️ Nextflix Shield v1.1.5 — AdGuard Filter Engine
+            ## 🛡️ Nextflix Shield v3.0 — THE NUCLEAR UPDATE
 
-            ### 🆕 What's New: Real AdGuard Filtering (185,660 domains)
-            Filter lists are compiled fresh from AdGuard's open-source repositories on every build.
+            ### 🆕 What's New: Zero-Collision Isolation
+            This version completely isolates the security shield from the Capacitor bridge.
 
-            | Filter | Domains | Blocks |
+            | Feature | Status | Benefit |
             |---|---|---|
-            | AdGuard Base | ~65,591 | Display ads, banners, ad scripts |
-            | AdGuard Mobile Ads | ~1,023 | Mobile-specific ad SDKs |
-            | AdGuard Tracking | ~85,184 | Analytics, fingerprinting, trackers |
-            | AdGuard Annoyances | ~1,033 | Popups, cookie notices, redirects |
-            | AdGuard DNS Filter | ~161,288 | DNS-level comprehensive list |
-            | EasyList | ~56,027 | Community standard blocklist |
-            | EasyPrivacy | ~46,819 | Privacy protection |
-            | **TOTAL** | **185,660+** | 🛡️ AdGuard-grade protection |
+            | **Zero-Collision** | ✅ Active | Fixes RETRO_ERR / Red Banner Error |
+            | **Native Player Force** | ✅ Active | Keeps subtitles/quality settings on iOS |
+            | **Shield Pulse** | ✅ Active | Premium visual feedback for intrusions |
+            | **Hardening** | ✅ Active | Expands blocklist to vidlink.pro/stream.ad |
 
-            ### 🔧 How Blocking Works (3 Layers)
-            1. **Service Worker** — Intercepts ALL network requests via a 316KB Bloom filter (O(1) lookups)
-            2. **iOS Native** — `WKContentRuleList` with 45,000 rules at the network level
-            3. **Android Native** — `shouldInterceptRequest` blocks all ad requests before they load
-            4. **JS Injection** — Injected into EVERY iframe to kill `window.open`, `location.href` hijacks
+            ### 🔧 Security Layers (v3 Architecture)
+            1. **Strict Origin Isolation** — Block scripts exit main frame to prevent bridge collision.
+            2. **Inline Media Force** — Native iOS/Android override to prevent browser hijacking.
+            3. **MutationObserver v2** — Real-time DOM scanning for ad-injected meta-refresh tags.
+            4. **Service Worker Edge** — 185k+ domains blocked with hardcoded high-priority additions.
 
             ### ✅ Compatibility
             - iOS 12+ (iPhone 6s Plus and newer)

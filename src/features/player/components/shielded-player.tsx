@@ -133,6 +133,22 @@ export function ShieldedPlayer({ src, iframeKey, layoutMode, className }: Shield
         className
       )}
     >
+      {/* Safe Zone Pulse — subtle outer glow when shield is active */}
+      <AnimatePresence>
+        {isShieldArmed && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className={cn(
+              "absolute inset-0 z-0 pointer-events-none transition-all duration-1000",
+              blockedCount > 0 
+                ? "shadow-[inset_0_0_80px_rgba(34,197,94,0.15)]" 
+                : "shadow-[inset_0_0_40px_rgba(229,9,20,0.1)]"
+            )}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Loading overlay */}
       {isLoading && (
         <motion.div
@@ -142,64 +158,85 @@ export function ShieldedPlayer({ src, iframeKey, layoutMode, className }: Shield
           className="absolute inset-0 z-10 flex items-center justify-center bg-black"
         >
           <div className="flex flex-col items-center gap-4">
-            <Spinner size="lg" className="text-nf-accent" />
+            <div className="relative">
+              <Spinner size="lg" className="text-nf-accent relative z-10" />
+              <motion.div 
+                animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="absolute inset-0 bg-nf-accent/20 rounded-full blur-xl"
+              />
+            </div>
             <div className="flex flex-col items-center text-center">
-              <p className="text-white font-medium">Securing playback...</p>
-              <p className="text-nf-text-muted text-xs">Engaging Stealth Shield</p>
+              <p className="text-white font-bold tracking-tight">Hardening Connection...</p>
+              <p className="text-nf-text-muted text-[10px] uppercase tracking-widest font-black opacity-50">Stealth Shield v3.0</p>
             </div>
           </div>
         </motion.div>
       )}
 
-      {/* Shield badge */}
+      {/* Shield badge — Enhanced with pulse */}
       <AnimatePresence>
         {isShieldArmed && (
           <motion.div
-            initial={{ y: -20, opacity: 0 }}
+            initial={{ y: -30, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             className={cn(
-              "absolute top-3 left-3 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-full backdrop-blur-md border text-xs font-bold shadow-xl transition-colors duration-500",
+              "absolute top-4 left-4 z-20 flex items-center gap-2 px-3 py-1.5 rounded-xl backdrop-blur-xl border text-[10px] font-black uppercase tracking-wider shadow-2xl transition-all duration-700",
               blockedCount > 0
-                ? "bg-green-600/90 border-green-400/30 text-white"
-                : "bg-nf-accent/80 border-white/20 text-white/90"
+                ? "bg-green-600/20 border-green-400/30 text-green-400"
+                : "bg-nf-accent/10 border-white/10 text-nf-accent"
             )}
           >
-            {blockedCount > 0 ? (
-              <>
-                <ShieldCheck className="w-3 h-3 fill-white/20" />
-                <span className="tabular-nums">{blockedCount} BLOCKED</span>
-              </>
-            ) : (
-              <>
-                <Shield className="w-3 h-3 fill-white/20" />
-                <span>PROTECTED</span>
-              </>
-            )}
+            <div className="relative flex items-center justify-center">
+              <ShieldCheck className={cn("w-3.5 h-3.5", blockedCount > 0 ? "text-green-400" : "text-nf-accent opacity-50")} />
+              {blockedCount > 0 && (
+                <motion.div 
+                  animate={{ scale: [1, 2], opacity: [1, 0] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                  className="absolute inset-0 bg-green-400 rounded-full"
+                />
+              )}
+            </div>
+            <span className="tabular-nums">
+              {blockedCount > 0 ? `${blockedCount} INTRUSIONS BLOCKED` : "SHIELD PROTECTED"}
+            </span>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* CSS Fullscreen toggle button */}
-      {/* Position: top-right corner, always visible, no AVKit handoff */}
       {!isLoading && !isError && (
         <button
           onClick={toggleFullscreen}
           aria-label={isCSSFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
           className={cn(
             "absolute z-20 flex items-center justify-center",
-            "w-8 h-8 rounded-lg",
-            "bg-black/60 backdrop-blur-sm border border-white/10",
-            "text-white hover:bg-black/80 active:scale-95",
-            "transition-all duration-150",
-            // Position: top-right, below shield badge if armed
-            "top-3 right-3"
+            "w-10 h-10 rounded-xl",
+            "bg-black/40 backdrop-blur-xl border border-white/10",
+            "text-white/80 hover:text-white hover:bg-black/60 active:scale-90",
+            "transition-all duration-300 shadow-2xl",
+            "top-4 right-4"
           )}
         >
           {isCSSFullscreen
-            ? <Minimize2 className="w-4 h-4" />
-            : <Maximize2 className="w-4 h-4" />
+            ? <Minimize2 className="w-5 h-5" />
+            : <Maximize2 className="w-5 h-5" />
           }
         </button>
+      )}
+
+      {/* Hint overlay for first-time use */}
+      {!isLoading && !isError && !isCSSFullscreen && (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 2 }}
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 pointer-events-none"
+        >
+          <p className="text-[10px] text-white/30 font-bold uppercase tracking-[0.2em] whitespace-nowrap bg-black/20 px-4 py-1 rounded-full backdrop-blur-sm">
+            Hardened IFrame Playback Enabled
+          </p>
+        </motion.div>
       )}
 
       {/* Error overlay */}
@@ -207,28 +244,30 @@ export function ShieldedPlayer({ src, iframeKey, layoutMode, className }: Shield
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="absolute inset-0 z-10 flex items-center justify-center bg-black/90"
+          className="absolute inset-0 z-30 flex items-center justify-center bg-black/95"
         >
-          <div className="flex flex-col items-center gap-4 text-center px-6">
-            <AlertTriangle className="w-12 h-12 text-nf-accent" />
-            <div className="space-y-1">
-              <p className="text-white font-medium text-lg">Failed to load stream</p>
-              <p className="text-nf-text-muted text-sm max-w-xs">
-                The source might be offline or blocked by your network. Try switching sources.
+          <div className="flex flex-col items-center gap-6 text-center px-10">
+            <div className="w-20 h-20 rounded-full bg-nf-accent/10 flex items-center justify-center border border-nf-accent/20">
+              <AlertTriangle className="w-10 h-10 text-nf-accent" />
+            </div>
+            <div className="space-y-2">
+              <p className="text-white font-black text-xl tracking-tight uppercase">Shield Interference</p>
+              <p className="text-nf-text-muted text-sm max-w-xs leading-relaxed">
+                The stream was terminated by the shield or source. Try a different provider.
               </p>
             </div>
             <button
               onClick={handleRetry}
-              className="flex items-center gap-2 px-6 py-3 rounded-full bg-nf-accent hover:bg-nf-accent-hover text-white text-sm font-bold transition-all hover:scale-105 active:scale-95 shadow-lg shadow-nf-accent/20"
+              className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-nf-accent hover:bg-nf-accent-hover text-white text-sm font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95 shadow-2xl shadow-nf-accent/40"
             >
               <RefreshCw className="w-4 h-4" />
-              Reload Source
+              Re-Engage Shield
             </button>
           </div>
         </motion.div>
       )}
 
-      {/* The iframe itself */}
+      {/* The iframe itself — playsinline is key to prevent iOS takeover */}
       <iframe
         ref={iframeRef}
         key={iframeKey}
@@ -238,9 +277,10 @@ export function ShieldedPlayer({ src, iframeKey, layoutMode, className }: Shield
         referrerPolicy="no-referrer"
         scrolling="no"
         frameBorder={0}
-        className="w-full h-full border-0 absolute inset-0"
+        className="w-full h-full border-0 absolute inset-0 z-[1] bg-black"
         onLoad={handleLoad}
         onError={handleError}
+        title="Streaming Content"
       />
     </div>
   );
