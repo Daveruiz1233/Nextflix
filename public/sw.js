@@ -1,18 +1,18 @@
 /**
- * Nextflix Shield — Final Engine
+ * Nextflix Shield — Final Engine (Operation Retro)
  * High-performance Bloom Filter AdBlocker.
- * Matches 160,000+ AdGuard rules in O(1) time.
+ * Pure ES5 version for Legacy Hardware.
  */
 
-const VERSION = "v2.0.0";
-let filterBuffer = null;
-let m = 0;
-let k = 0;
+var VERSION = "v2.0.1";
+var filterBuffer = null;
+var m = 0;
+var k = 0;
 
-// Minimal FNV-1a hash - MUST MATCH COMPILER
+// Minimal FNV-1a hash
 function hash(str, seed) {
-  let h = 0x811c9dc5 ^ seed;
-  for (let i = 0; i < str.length; i++) {
+  var h = 0x811c9dc5 ^ seed;
+  for (var i = 0; i < str.length; i++) {
     h ^= str.charCodeAt(i);
     h = Math.imul(h, 0x01000193);
   }
@@ -23,87 +23,80 @@ function hash(str, seed) {
 function isBlocked(hostname) {
   if (!filterBuffer || !m || !k) return false;
 
-  const parts = hostname.split(".");
-  // Check domain and all parent domains (e.g. ad.example.com, example.com)
-  for (let i = 0; i < parts.length - 1; i++) {
-    const domain = parts.slice(i).join(".");
+  var parts = hostname.split(".");
+  for (var i = 0; i < parts.length - 1; i++) {
+    var domain = parts.slice(i).join(".");
     if (checkFilter(domain)) return true;
   }
   return false;
 }
 
 function checkFilter(str) {
-  const bitCount = m;
-  for (let i = 0; i < k; i++) {
-    const h = hash(str, i) % bitCount;
+  var bitCount = m;
+  for (var i = 0; i < k; i++) {
+    var h = hash(str, i) % bitCount;
     if (!(filterBuffer[h >> 3] & (1 << (h % 8)))) return false;
   }
   return true;
 }
 
-async function loadFilter() {
-  try {
-    const response = await fetch("/filter.bin", { cache: "no-cache" });
-    const arrayBuffer = await response.arrayBuffer();
-    const view = new DataView(arrayBuffer);
+function loadFilter() {
+  return fetch("/filter.bin", { cache: "no-cache" })
+    .then(function(response) { return response.arrayBuffer(); })
+    .then(function(arrayBuffer) {
+      var view = new DataView(arrayBuffer);
+      var magic = String.fromCharCode(
+        view.getUint8(0), view.getUint8(1),
+        view.getUint8(2), view.getUint8(3)
+      );
 
-    // Check Magic 'NFSD'
-    const magic = String.fromCharCode(
-      view.getUint8(0),
-      view.getUint8(1),
-      view.getUint8(2),
-      view.getUint8(3)
-    );
+      if (magic !== "NFSD") throw new Error("Invalid filter format");
 
-    if (magic !== "NFSD") {
-      throw new Error("Invalid filter binary format");
-    }
+      m = view.getUint32(4, true);
+      k = view.getUint32(8, true);
+      filterBuffer = new Uint8Array(arrayBuffer, 12);
 
-    m = view.getUint32(4, true);
-    k = view.getUint32(8, true);
-    filterBuffer = new Uint8Array(arrayBuffer, 12);
-
-    console.log(`[Nextflix Shield] Firewall loaded: ${m} bits, ${k} hashes.`);
-  } catch (err) {
-    console.error("[Nextflix Shield] Failed to load firewall:", err);
-  }
+      console.log('[Nextflix Shield] Retro Firewall loaded:', m, k);
+    })
+    .catch(function(err) {
+      console.error("[Nextflix Shield] Failed to load retro firewall:", err);
+    });
 }
 
-self.addEventListener("install", (event) => {
+self.addEventListener("install", function(event) {
   self.skipWaiting();
 });
 
-self.addEventListener("activate", (event) => {
-  event.waitUntil(Promise.all([loadFilter(), self.clients.claim()]));
+self.addEventListener("activate", function(event) {
+  event.waitUntil(
+    Promise.all([
+      loadFilter(),
+      self.clients.claim()
+    ])
+  );
 });
 
-self.addEventListener("fetch", (event) => {
-  const url = new URL(event.request.url);
-  const hostname = url.hostname.toLowerCase();
-  const isNavigation = event.request.mode === "navigate" || event.request.destination === "document";
+self.addEventListener("fetch", function(event) {
+  var url = new URL(event.request.url);
+  var hostname = url.hostname.toLowerCase();
+  var isNavigation = event.request.mode === "navigate" || event.request.destination === "document";
 
-  // Don't block our own scripts, the filter binary, or the TMDB API
   if (hostname === self.location.hostname || hostname === 'api.themoviedb.org') return;
 
-  // Intercept all requests (XHR, Image, Script) and especially Redirect Navigations
   if (isBlocked(hostname) || 
-      hostname.includes("rtmark.net") || 
-      hostname.includes("104processors.net") || 
-      hostname.includes("yandex.ru")) {
+      hostname.indexOf("rtmark.net") !== -1 || 
+      hostname.indexOf("104processors.net") !== -1 || 
+      hostname.indexOf("yandex.ru") !== -1) {
     
-    console.warn(`[Nextflix Shield] Blocked ${isNavigation ? 'REDIRECT' : 'REQUEST'}: ${hostname}`);
+    console.warn("[Nextflix Shield] Blocked hostname:", hostname);
     
-    // Notify clients to increment counter
     reportBlocked(hostname);
 
-    // If it's a redirect navigation, we return a 204 No Content or empty 200
-    // Returning 204 effectively kills the navigation without leaving the current page.
     if (isNavigation) {
         event.respondWith(new Response(null, { status: 204, statusText: "No Content" }));
         return;
     }
 
-    // Stealth Mode for scripts/trackers: Return 200 OK with empty body 
     event.respondWith(
       new Response("/* Shielded */", {
         status: 200,
@@ -114,12 +107,13 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
-async function reportBlocked(domain) {
-  const clients = await self.clients.matchAll();
-  clients.forEach((client) => {
-    client.postMessage({
-      type: "AD_BLOCKED",
-      domain: domain,
+function reportBlocked(domain) {
+  return self.clients.matchAll().then(function(clients) {
+    clients.forEach(function(client) {
+      client.postMessage({
+        type: "AD_BLOCKED",
+        domain: domain
+      });
     });
   });
 }
