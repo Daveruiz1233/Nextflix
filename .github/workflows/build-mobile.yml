@@ -5,6 +5,9 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-android:
     runs-on: ubuntu-latest
@@ -24,7 +27,7 @@ jobs:
         run: NEXT_PUBLIC_TMDB_API_KEY="${{ secrets.NEXT_PUBLIC_TMDB_API_KEY }}" npm run build
           
       - name: Set up JDK 21
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
@@ -117,7 +120,7 @@ jobs:
           name: nextflix-unsigned.ipa
           
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
           name: Nextflix Shield v1.1.0-beta
