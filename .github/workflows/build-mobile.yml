@@ -135,7 +135,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
-          name: Nextflix Shield v1.1.4-LEGACY-COMPAT
+          name: Nextflix Shield v1.1.5-ADGUARD-STYLE
           body: |
             ## 🛡️ Nextflix Shield v1.1.4 — Legacy Compatible Build
 
