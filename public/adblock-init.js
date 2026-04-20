@@ -31,14 +31,27 @@
     return originalOpen.apply(this, [url, ...args]);
   };
 
-  window.fetch = function(...args) {
-    const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
-    if (earlyBlocklist.some(d => url.includes(d))) {
-      console.warn('[Shield] BLOCKED STEALTH FETCH:', url);
-      return Promise.resolve(new Response('/* Shielded */', { 
-          status: 200, 
-          headers: { 'Content-Type': 'application/javascript' } 
-      }));
+  window.fetch = function() {
+    const args = arguments;
+    try {
+      const firstArg = args[0];
+      let url = '';
+      
+      if (typeof firstArg === 'string') {
+        url = firstArg;
+      } else if (firstArg && typeof firstArg === 'object') {
+        url = firstArg.url || firstArg.toString() || '';
+      }
+
+      if (url && earlyBlocklist.some(function(d) { return url.indexOf(d) !== -1; })) {
+        console.warn('[Shield] BLOCKED STEALTH FETCH:', url);
+        return Promise.resolve(new Response('/* Shielded */', { 
+            status: 200, 
+            headers: { 'Content-Type': 'application/javascript' } 
+        }));
+      }
+    } catch (e) {
+      console.error('[Shield] Fetch interceptor error:', e);
     }
     return originalFetch.apply(this, args);
   };

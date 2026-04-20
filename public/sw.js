@@ -82,8 +82,8 @@ self.addEventListener("fetch", (event) => {
   const hostname = url.hostname.toLowerCase();
   const isNavigation = event.request.mode === "navigate" || event.request.destination === "document";
 
-  // Don't block our own scripts or the filter binary
-  if (hostname === self.location.hostname) return;
+  // Don't block our own scripts, the filter binary, or the TMDB API
+  if (hostname === self.location.hostname || hostname === 'api.themoviedb.org') return;
 
   // Intercept all requests (XHR, Image, Script) and especially Redirect Navigations
   if (isBlocked(hostname) || 
