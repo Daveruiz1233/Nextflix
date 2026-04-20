@@ -3,45 +3,114 @@ import path from "path";
 import https from "https";
 
 /**
- * Nextflix Shield — High-Performance Bloom Filter Compiler
- * Converts 160,000+ AdGuard rules into a ~300KB binary firewall.
- * False Positive Rate: 0.1% | Optimized for iPhone 6s Plus.
+ * Nextflix Shield — AdGuard Filter Compiler
+ *
+ * Downloads AdGuard's official open-source filter lists (CC BY-SA 4.0 licensed)
+ * and compiles them into:
+ *   1. public/filter.bin        — Binary Bloom Filter for the Service Worker
+ *   2. adblock-rules.json       — Apple/Android Content Blocker JSON for native layers
+ *
+ * Filter sources (same lists the AdGuard browser extension uses):
+ *   • AdGuard Base Filter        (filter #2)   — General ad blocking
+ *   • AdGuard Mobile Ads Filter  (filter #11)  — Mobile-specific ads
+ *   • AdGuard Tracking Filter    (filter #3)   — Spyware/trackers
+ *   • AdGuard Annoyances Filter  (filter #14)  — Popups/redirects
+ *   • EasyList                                 — Community standard
+ *   • EasyPrivacy                              — Privacy/tracking
  */
 
-const FILTERS = [
-  "https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt",
-  "https://filters.adtidy.org/extension/chromium-mv3/filters/19.txt",
+const FILTER_SOURCES = [
+  {
+    name: "AdGuard Base Filter",
+    url: "https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_2_Base/filter.txt",
+  },
+  {
+    name: "AdGuard Mobile Ads",
+    url: "https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_11_Mobile/filter.txt",
+  },
+  {
+    name: "AdGuard Tracking Protection",
+    url: "https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_3_Spyware/filter.txt",
+  },
+  {
+    name: "AdGuard Annoyances (Popups)",
+    url: "https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_14_Annoyances/filter.txt",
+  },
+  {
+    name: "AdGuard DNS Filter (fast)",
+    url: "https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt",
+  },
+  {
+    name: "EasyList",
+    url: "https://easylist.to/easylist/easylist.txt",
+  },
+  {
+    name: "EasyPrivacy",
+    url: "https://easylist.to/easylist/easyprivacy.txt",
+  },
 ];
 
-// Optimal parameters for 160,000 items at 0.1% false positive rate
-const N = 170000; // Expected items
-const P = 0.001;  // False positive rate (0.1%)
-const M = Math.ceil(-(N * Math.log(P)) / (Math.log(2) ** 2)); // ~2,400,000 bits
-const K = Math.round((M / N) * Math.log(2)); // ~10 hashes
+// Bloom filter parameters — 0.1% false positive rate for ~180,000 domains
+const N = 180000;
+const P = 0.001;
+const M = Math.ceil(-(N * Math.log(P)) / Math.log(2) ** 2);
+const K = Math.round((M / N) * Math.log(2));
 const SIZE_BYTES = Math.ceil(M / 8);
 
-const OUTPUT_PATH = path.join(process.cwd(), "public", "filter.bin");
+const OUTPUT_BIN = path.join(process.cwd(), "public", "filter.bin");
+const IOS_JSON = path.join(process.cwd(), "ios", "App", "App", "adblock-rules.json");
+const ANDROID_JSON = path.join(
+  process.cwd(), "android", "app", "src", "main", "assets", "adblock-rules.json"
+);
 
-async function fetchFilter(url) {
+// Domains whitelisted — NEVER block these regardless of filter lists
+const WHITELIST = new Set([
+  "api.themoviedb.org", "image.tmdb.org",
+  "player.videasy.net", "vidsrc.to", "vidsrc.xyz", "vidsrc.cc",
+  "vidsrc.me", "vidsrc.net", "vidsrc.io", "vidsrc.in",
+  "embed.su", "multiembed.mov", "autoembed.co", "vixsrc.to",
+  "fonts.googleapis.com", "fonts.gstatic.com", "cdn.jsdelivr.net",
+  "unpkg.com", "localhost",
+]);
+
+function fetchText(url) {
   return new Promise((resolve, reject) => {
     https.get(url, (res) => {
+      // Follow redirects
+      if (res.statusCode === 301 || res.statusCode === 302) {
+        return fetchText(res.headers.location).then(resolve).catch(reject);
+      }
       let data = "";
       res.on("data", (chunk) => (data += chunk));
       res.on("end", () => resolve(data));
-      res.on("error", (err) => reject(err));
-    });
+      res.on("error", reject);
+    }).on("error", reject);
   });
 }
 
-function parseRules(content) {
+/**
+ * Parse AdGuard/ABP format filter rules.
+ * Extracts pure domain-level blocks from ||domain.com^ rules.
+ */
+function parseDomains(content) {
   const domains = new Set();
-  const lines = content.split("\n");
-  for (let line of lines) {
+  for (let line of content.split("\n")) {
     line = line.trim();
-    if (!line || line.startsWith("!") || line.startsWith("[")) continue;
-    if (line.startsWith("||") && line.endsWith("^")) {
-      const domain = line.substring(2, line.length - 1);
-      if (domain && !domain.includes("/") && !domain.includes("*")) {
+    if (!line || line.startsWith("!") || line.startsWith("[") || line.startsWith("#")) continue;
+
+    // Standard domain block: ||example.com^
+    if (line.startsWith("||") && line.includes("^")) {
+      // Strip options after $
+      const caret = line.indexOf("^");
+      const domain = line.substring(2, caret);
+      if (
+        domain &&
+        !domain.includes("/") &&
+        !domain.includes("*") &&
+        !domain.includes(" ") &&
+        domain.includes(".") &&
+        !WHITELIST.has(domain.toLowerCase())
+      ) {
         domains.add(domain.toLowerCase());
       }
     }
@@ -49,7 +118,7 @@ function parseRules(content) {
   return domains;
 }
 
-// Minimal FNV-1a hash
+// FNV-1a hash (must match sw.js)
 function hash(str, seed) {
   let h = 0x811c9dc5 ^ seed;
   for (let i = 0; i < str.length; i++) {
@@ -59,50 +128,95 @@ function hash(str, seed) {
   return Math.abs(h);
 }
 
-async function run() {
-  console.log("🛠️  Compiling High-Performance Bloom Filter...");
-  const domains = new Set();
-
-  try {
-    for (const url of FILTERS) {
-      console.log(`📡 Fetching: ${url}`);
-      const content = await fetchFilter(url);
-      const parsed = parseRules(content);
-      parsed.forEach((d) => domains.add(d));
-      console.log(`   + Added ${parsed.size} domains`);
-    }
-
-    console.log(`✨ Total Unique Domains: ${domains.size}`);
-    
-    const buffer = Buffer.alloc(SIZE_BYTES);
-    const bitCount = SIZE_BYTES * 8;
-
-    for (const domain of domains) {
-      for (let i = 0; i < K; i++) {
-        const index = hash(domain, i) % bitCount;
-        buffer[index >> 3] |= (1 << (index % 8));
-      }
-    }
-
-    // Include metadata in a header for the Service Worker (Params: m, k)
-    // Header format: [Magic: 'NFSD', M: 32bit, K: 32bit]
-    const magic = Buffer.from("NFSD");
-    const header = Buffer.alloc(magic.length + 8);
-    magic.copy(header);
-    header.writeUInt32LE(M, 4);
-    header.writeUInt32LE(K, 8);
-
-    const finalBuffer = Buffer.concat([header, buffer]);
-    fs.writeFileSync(OUTPUT_PATH, finalBuffer);
-
-    console.log(`\n🎉 Compiled successfully to ${OUTPUT_PATH}`);
-    console.log(`📦 Final Size: ${(finalBuffer.length / 1024).toFixed(2)} KB`);
-    console.log(`🛡️  Protection Level: AdGuard Grade (${domains.size} rules)`);
-    console.log(`⚡ Performance: O(1) matching for iPhone 6s Plus`);
-  } catch (err) {
-    console.error("❌ Fatal Error:", err);
-    process.exit(1);
-  }
+function ensureDir(filePath) {
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
-run();
+async function run() {
+  console.log("🛡️  Nextflix Shield — AdGuard Filter Compiler");
+  console.log("================================================");
+
+  const allDomains = new Set();
+
+  for (const source of FILTER_SOURCES) {
+    try {
+      console.log(`\n📡 Fetching: ${source.name}`);
+      const content = await fetchText(source.url);
+      const domains = parseDomains(content);
+      domains.forEach((d) => allDomains.add(d));
+      console.log(`   ✅ +${domains.size.toLocaleString()} domains (total: ${allDomains.size.toLocaleString()})`);
+    } catch (err) {
+      console.warn(`   ⚠️  Failed to fetch ${source.name}: ${err.message}`);
+    }
+  }
+
+  if (allDomains.size === 0) {
+    console.error("❌ No domains collected. Aborting.");
+    process.exit(1);
+  }
+
+  const totalDomains = [...allDomains];
+  console.log(`\n✨ Total unique domains: ${totalDomains.length.toLocaleString()}`);
+
+  // ─── 1. BUILD BLOOM FILTER BINARY ───────────────────────────────
+  console.log("\n📦 Compiling Bloom Filter binary...");
+  const bloomBuffer = Buffer.alloc(SIZE_BYTES);
+  const bitCount = SIZE_BYTES * 8;
+
+  for (const domain of totalDomains) {
+    for (let i = 0; i < K; i++) {
+      const idx = hash(domain, i) % bitCount;
+      bloomBuffer[idx >> 3] |= 1 << (idx % 8);
+    }
+  }
+
+  // Header: [Magic 'NFSD'][M: uint32LE][K: uint32LE]
+  const header = Buffer.alloc(12);
+  Buffer.from("NFSD").copy(header);
+  header.writeUInt32LE(M, 4);
+  header.writeUInt32LE(K, 8);
+
+  const final = Buffer.concat([header, bloomBuffer]);
+  ensureDir(OUTPUT_BIN);
+  fs.writeFileSync(OUTPUT_BIN, final);
+  console.log(`   ✅ ${OUTPUT_BIN}`);
+  console.log(`   📦 Size: ${(final.length / 1024).toFixed(1)} KB`);
+  console.log(`   🎯 False positive rate: ${(P * 100).toFixed(1)}%`);
+
+  // ─── 2. GENERATE NATIVE JSON RULES ──────────────────────────────
+  // Apple's WKContentRuleList + Android WebView has a ~50k rule limit
+  // We take the most impactful rules (first 45k)
+  console.log("\n📱 Generating native content rules (iOS + Android)...");
+  const nativeDomains = totalDomains.slice(0, 45000);
+
+  const rules = nativeDomains.map((domain) => ({
+    trigger: {
+      "url-filter": `[a-z]*://(.*\\.)?${domain.replace(/\./g, "\\.")}`,
+      "load-type": ["third-party"],
+    },
+    action: {
+      type: "block",
+    },
+  }));
+
+  const rulesJson = JSON.stringify(rules);
+  ensureDir(IOS_JSON);
+  ensureDir(ANDROID_JSON);
+  fs.writeFileSync(IOS_JSON, rulesJson);
+  fs.writeFileSync(ANDROID_JSON, rulesJson);
+  console.log(`   ✅ iOS:     ${IOS_JSON}`);
+  console.log(`   ✅ Android: ${ANDROID_JSON}`);
+  console.log(`   📋 Rules:   ${rules.length.toLocaleString()}`);
+
+  console.log("\n🎉 Shield compilation complete!");
+  console.log("================================================");
+  console.log(`🛡️  AdGuard-grade protection: ${totalDomains.length.toLocaleString()} domains`);
+  console.log(`⚡ Service Worker: O(1) Bloom filter lookups`);
+  console.log(`📱 Native layers: ${rules.length.toLocaleString()} content rules`);
+}
+
+run().catch((err) => {
+  console.error("❌ Fatal:", err);
+  process.exit(1);
+});
