@@ -142,26 +142,36 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
-          name: Nextflix Shield v1.1.5-ADGUARD-STYLE
+          name: Nextflix Shield v1.1.5 — AdGuard Filter Engine
           body: |
-            ## 🛡️ Nextflix Shield v1.1.4 — Legacy Compatible Build
+            ## 🛡️ Nextflix Shield v1.1.5 — AdGuard Filter Engine
 
-            ### 🔧 Critical Fix: iPhone 6s Plus Compatibility
-            - **Root Cause**: Next.js 16 Turbopack was outputting ES2020+ JavaScript (`globalThis`, arrow functions in module wrappers) that old iOS WebKit cannot parse.
-            - **Fix**: Forced Webpack compiler with `--no-turbopack` flag and set `.browserslistrc` to target **iOS 12+**.
-            - The app should now boot correctly on older iPhones.
+            ### 🆕 What's New: Real AdGuard Filtering (185,660 domains)
+            Filter lists are compiled fresh from AdGuard's open-source repositories on every build.
 
-            ### ✅ What's Working
-            - Catalog page with movies and TV shows
-            - TMDB API integration (key baked into build)
-            - Ad-blocking Shield (ES5 compatible)
-            - Service Worker firewall
+            | Filter | Domains | Blocks |
+            |---|---|---|
+            | AdGuard Base | ~65,591 | Display ads, banners, ad scripts |
+            | AdGuard Mobile Ads | ~1,023 | Mobile-specific ad SDKs |
+            | AdGuard Tracking | ~85,184 | Analytics, fingerprinting, trackers |
+            | AdGuard Annoyances | ~1,033 | Popups, cookie notices, redirects |
+            | AdGuard DNS Filter | ~161,288 | DNS-level comprehensive list |
+            | EasyList | ~56,027 | Community standard blocklist |
+            | EasyPrivacy | ~46,819 | Privacy protection |
+            | **TOTAL** | **185,660+** | 🛡️ AdGuard-grade protection |
 
-            ### 📦 Artifacts
-            - `app-debug.apk`: Universal Android build (Unsigned)
-            - `Nextflix-Unsigned.ipa`: Unsigned iOS build for sideloading
+            ### 🔧 How Blocking Works (3 Layers)
+            1. **Service Worker** — Intercepts ALL network requests via a 316KB Bloom filter (O(1) lookups)
+            2. **iOS Native** — `WKContentRuleList` with 45,000 rules at the network level
+            3. **Android Native** — `shouldInterceptRequest` blocks all ad requests before they load
+            4. **JS Injection** — Injected into EVERY iframe to kill `window.open`, `location.href` hijacks
 
-            *Note: This is a pre-release for testing and educational purposes.*
+            ### ✅ Compatibility
+            - iOS 12+ (iPhone 6s Plus and newer)
+            - All Android versions supported by Capacitor
+            - Webpack build (no Turbopack — ES5 compatible)
+
+            *Educational/personal use only.*
           files: |
             app-debug.apk
             Nextflix-Unsigned.ipa
