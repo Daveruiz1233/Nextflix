@@ -47,27 +47,15 @@ public class MainActivity extends BridgeActivity {
         "(function(){" +
         "'use strict';" +
 
-        // 1. Skip main Capacitor frame to avoid RETRO_ERR
+        // 1. Skip main Capacitor frame
         "if((window.self===window.top)&&(typeof window.Capacitor!=='undefined'||typeof window.__capacitor__!=='undefined')){" +
-        "window.open=function(){return{closed:true,focus:function(){},close:function(){}};};return;" +
+        "return;" +
         "}" +
 
-        // 2. Iron Dome: Location Proxying
-        "try{" +
-        "var hd=Object.getOwnPropertyDescriptor(Location.prototype,'href');" +
-        "if(hd&&hd.set){var os=hd.set;" +
-        "Object.defineProperty(Location.prototype,'href',{" +
-        "get:hd.get," +
-        "set:function(u){" +
-        "var s=String(u);" +
-        "if(s.indexOf('localhost')!==-1||s.indexOf('capacitor')!==-1||s.indexOf('blob:')===0||s.indexOf('data:')===0||s.indexOf('about:')===0){os.call(this,u);}" +
-        "else{console.warn('[Shield] Intercepted navigation:',u);}" +
-        "},configurable:true});}" +
-        "}catch(e){}" +
-
+        // 2. Kill window.open
         "window.open=function(){return{closed:true,focus:function(){},close:function(){},postMessage:function(){}};};" +
 
-        // 3. Global Click & Touch Interception
+        // 3. Global Click Interception (Selective)
         "var killEvent=function(e){" +
         "var el=e.target;while(el){" +
         "if(el.tagName==='A'){" +
@@ -77,8 +65,6 @@ public class MainActivity extends BridgeActivity {
         "}break;}" +
         "el=el.parentElement;}};" +
         "document.addEventListener('click',killEvent,true);" +
-        "document.addEventListener('mousedown',killEvent,true);" +
-        "document.addEventListener('touchstart',killEvent,true);" +
 
         // 4. MutationObserver
         "try{var mo=new MutationObserver(function(ms){" +
@@ -99,7 +85,7 @@ public class MainActivity extends BridgeActivity {
         "var tr=document.createElement('track');tr.kind='subtitles';tr.label=t.name||t.label||'Sub';tr.src=t.url;" +
         "v.appendChild(tr);sy.add(t.url);console.log('Synced:',tr.label);}});},3000);})();" +
 
-        "console.log('[Shield v3 ✓] Iron Dome Active');" +
+        "console.log('[Shield v3.1 ✓] Iron Dome Active');" +
         "})();";
 
     private static final WebResourceResponse EMPTY_OK =

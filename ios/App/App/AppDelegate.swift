@@ -8,9 +8,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKNavigationDelegate, WKU
     var window: UIWindow?
 
     // ═══════════════════════════════════════════════════════════════════
-    // NUCLEAR SHIELD INJECTION — v2.0
-    // Patches 12 redirect vectors + MutationObserver cleanup
-    // Injected at document-start into EVERY frame
+    // NUCLEAR SHIELD INJECTION — v3.1 (Softened for Interactivity)
     // ═══════════════════════════════════════════════════════════════════
     private let shieldScript = """
     (function() {
@@ -19,54 +17,24 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKNavigationDelegate, WKU
         // 1. Skip main Capacitor frame to avoid RETRO_ERR
         if (window.self === window.top &&
             (window.Capacitor !== undefined || window.__capacitor__ !== undefined)) {
-            // Still kill window.open in main frame (safety)
-            window.open = function() {
-                return { closed: true, focus: function(){}, close: function(){} };
-            };
             return;
         }
 
-        // 2. Iron Dome: Location & Navigation Proxying
-        // Proxies location.href and top.location etc.
-        try {
-            var blockNav = function(u) {
-                console.warn('[Shield] Intercepted navigation:', u);
-                return true; 
-            };
-            
-            // Proxy Location.prototype.href
-            var hd = Object.getOwnPropertyDescriptor(Location.prototype, 'href');
-            if (hd && hd.set) {
-                var os = hd.set;
-                Object.defineProperty(Location.prototype, 'href', {
-                    get: hd.get,
-                    set: function(u) {
-                        var s = String(u);
-                        if (s.indexOf('localhost') !== -1 || s.indexOf('capacitor') !== -1 || 
-                            s.indexOf('blob:') === 0 || s.indexOf('data:') === 0 || 
-                            s.indexOf('about:') === 0 || s.indexOf('javascript:') === 0) {
-                            os.call(this, u);
-                        } else { blockNav(u); }
-                    },
-                    configurable: true
-                });
-            }
-        } catch(e) {}
-
-        // Kill window.open
+        // 2. Kill window.open (The core "Nuclear" block)
         window.open = function(url) {
             console.warn('[Shield] window.open BLOCKED');
             return { closed: true, focus: function(){}, close: function(){}, postMessage: function(){} };
         };
 
-        // 3. Global Click & Touch Interception
-        // Catch redirects on mousedown/touchstart (often used by clickjackers)
+        // 3. Global Click Interception (Selective Link Blocking)
+        // Only blocks <a> tags that try to escape the app environment
         var killEvent = function(e) {
             var el = e.target;
             while (el) {
                 if (el.tagName === 'A') {
                     var h = el.getAttribute('href') || '';
                     var t = el.getAttribute('target') || '';
+                    // Only block if it's an external escape attempt via target=_blank/top
                     if ((t === '_blank' || t === '_top' || t === '_parent') && 
                         h.indexOf('localhost') === -1 && h.indexOf('capacitor') === -1) {
                         e.preventDefault();
@@ -80,10 +48,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKNavigationDelegate, WKU
         };
         
         document.addEventListener('click', killEvent, true);
-        document.addEventListener('mousedown', killEvent, true);
-        document.addEventListener('touchstart', killEvent, true);
+        // Note: mousedown and touchstart removed to restore player touch controls
 
-        // 5. MutationObserver — Kill ad elements & meta-refresh
+        // 4. MutationObserver — Kill ad elements & meta-refresh
         try {
             var observer = new MutationObserver(function(mutations) {
                 for (var i = 0; i < mutations.length; i++) {
@@ -100,7 +67,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKNavigationDelegate, WKU
             observer.observe(document.documentElement, { childList: true, subtree: true });
         } catch(e) {}
 
-        // 6. Subtitle Bridge — Force-sync into Native Player
+        // 5. Subtitle Bridge — Force-sync into Native Player
         (function() {
             var synced = new Set();
             setInterval(function() {
@@ -122,7 +89,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKNavigationDelegate, WKU
             }, 3000);
         })();
 
-        console.log('[Shield v3 ✓] Iron Dome Active');
+        console.log('[Shield v3.1 ✓] Iron Dome Active');
     })();
     """
 
@@ -170,7 +137,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKNavigationDelegate, WKU
 
         loadContentRules(for: webView)
 
-        print("🛡️ [Shield v2] Nuclear mode — 12 vectors + content rules + WKUIDelegate")
+        print("🛡️ [Shield v3.1] Nuclear mode Softened — Subtitle Bridge engine running")
     }
 
     private func loadContentRules(for webView: WKWebView) {
