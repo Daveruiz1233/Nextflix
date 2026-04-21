@@ -118,149 +118,138 @@ export function ShieldedPlayer({ src, iframeKey, layoutMode, className }: Shield
     <div
       ref={containerRef}
       className={cn(
-        "group relative w-full overflow-hidden bg-black shadow-2xl transition-all duration-700 ease-out-expo",
-        // Enhanced shadows and border treatment
-        "ring-1 ring-white/5",
         // Base (non-fullscreen)
-        !isCSSFullscreen && [
-          "rounded-2xl mx-auto",
-          layoutMode === "stacked" ? "h-[40dvh]" : "aspect-video max-w-[1100px]"
-        ],
-        // Nuclear Fullscreen (Theater Mode)
+        "relative w-full overflow-hidden rounded-2xl bg-black shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] ring-1 ring-white/5",
+        "transition-all duration-500 ease-in-out",
+        // Normal sizing
+        !isCSSFullscreen && layoutMode === "stacked" && "h-[45dvh]",
+        !isCSSFullscreen && layoutMode !== "stacked" && "aspect-video max-w-[1200px] mx-auto",
+        // CSS Fullscreen: fixed overlay covering entire screen
+        // This is the key — no AVKit, same VidSrc controls, consistent look
         isCSSFullscreen && [
-          "fixed inset-0 z-[9999] rounded-none ring-0 w-screen h-[100dvh] bg-black",
-          "flex items-center justify-center"
+          "fixed inset-0 z-[9999]",
+          "w-screen h-[100dvh]",
+          "rounded-none ring-0 shadow-none",
         ],
         className
       )}
-      style={{
-        // Custom cubic-bezier for that premium feel
-        transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)'
-      }}
     >
-      {/* 🔮 Background Glow (Fullscreen only) */}
+      {/* Background glow effect in fullscreen */}
       {isCSSFullscreen && (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] bg-nf-accent/10 blur-[120px] rounded-full animate-pulse" />
-          <div className="absolute -bottom-[20%] -right-[10%] w-[50%] h-[50%] bg-blue-500/10 blur-[120px] rounded-full animate-pulse" style={{ animationDelay: '2s' }} />
+        <div className="absolute inset-0 pointer-events-none z-0">
+          <div className="absolute inset-[-10%] bg-nf-accent/10 blur-[100px] opacity-50" />
         </div>
       )}
 
-      {/* 🚨 Loading Overlay (Premium Glass) */}
+      {/* Loading overlay with glassmorphism */}
       {isLoading && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="absolute inset-0 z-[40] flex items-center justify-center bg-black/80 backdrop-blur-3xl"
+          className="absolute inset-0 z-10 flex items-center justify-center bg-black/80 backdrop-blur-sm"
         >
           <div className="flex flex-col items-center gap-6">
             <div className="relative">
-              <Spinner size="lg" className="text-nf-accent scale-125" />
-              <Shield className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 text-white/20 animate-pulse" />
+              <div className="absolute inset-0 bg-nf-accent/20 blur-xl rounded-full animate-pulse" />
+              <Spinner size="lg" className="text-nf-accent relative z-10" />
             </div>
-            <div className="flex flex-col items-center text-center space-y-2">
-              <h3 className="text-white font-bold tracking-tight text-lg">Initializing Shield</h3>
-              <p className="text-nf-text-muted text-sm px-8 max-w-xs leading-relaxed">
-                Neutralizing redirects and deep-cleaning the stream for an ad-free experience.
-              </p>
+            <div className="flex flex-col items-center text-center space-y-1">
+              <p className="text-white font-semibold text-lg tracking-tight">Engaging Iron Dome</p>
+              <p className="text-nf-text-muted text-xs uppercase tracking-widest font-bold">Stealth Shield v3.0 Active</p>
             </div>
           </div>
         </motion.div>
       )}
 
-      {/* 🛡️ Performance Shield Badge */}
-      <AnimatePresence mode="wait">
+      {/* Shield badge - Premium floating design */}
+      <AnimatePresence>
         {isShieldArmed && (
           <motion.div
-            key={blockedCount > 0 ? "active" : "standby"}
-            initial={{ x: -20, opacity: 0 }}
+            initial={{ x: -40, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             className={cn(
-              "absolute top-4 left-4 z-[50] flex items-center gap-2 px-3 py-1.5 rounded-xl backdrop-blur-xl border shadow-2xl transition-all duration-500",
+              "absolute top-4 left-4 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-xl border shadow-2xl transition-all duration-300",
               blockedCount > 0
-                ? "bg-emerald-500/20 border-emerald-400/40 text-emerald-400 animate-pulse-subtle"
-                : "bg-nf-accent/10 border-white/10 text-white/70"
+                ? "bg-nf-accent/20 border-nf-accent/40 text-nf-accent"
+                : "bg-white/5 border-white/10 text-white/60"
             )}
           >
             {blockedCount > 0 ? (
               <>
-                <div className="relative">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <div className="absolute inset-0 animate-ping opacity-40">
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                  </div>
-                </div>
-                <span className="text-[10px] uppercase tracking-widest font-black tabular-nums">
-                  {blockedCount} Vectors Killed
-                </span>
+                <div className="w-1.5 h-1.5 rounded-full bg-nf-accent animate-pulse" />
+                <span className="tabular-nums font-black text-[10px] tracking-tighter">{blockedCount} AD-LOOPS KILLED</span>
               </>
             ) : (
               <>
                 <Shield className="w-3.5 h-3.5 opacity-50" />
-                <span className="text-[10px] uppercase tracking-widest font-bold">Nuclear Shield Active</span>
+                <span className="font-bold text-[10px] tracking-widest uppercase">Shield Armed</span>
               </>
             )}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* 🎮 Premium Controls (Top Right) */}
+      {/* CSS Fullscreen toggle button - Sleek Integrated look */}
       {!isLoading && !isError && (
-        <div className="absolute top-4 right-4 z-[50] flex items-center gap-2 opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity duration-300">
-           {/* Info Pill */}
-           <div className="px-3 py-1.5 rounded-xl bg-black/40 backdrop-blur-xl border border-white/5 text-[10px] text-white/40 font-bold uppercase tracking-tighter">
-             {isCSSFullscreen ? 'Theater Mode' : 'HD Stream'}
-           </div>
-
-           {/* Fullscreen Toggle */}
+        <div className="absolute top-4 right-4 z-20 flex gap-2">
            <button
             onClick={toggleFullscreen}
+            aria-label={isCSSFullscreen ? "Exit theater mode" : "Enter theater mode"}
             className={cn(
-              "flex items-center justify-center",
-              "w-10 h-10 rounded-xl",
-              "bg-white/10 backdrop-blur-2xl border border-white/10",
-              "text-white shadow-2xl hover:bg-white/20 active:scale-90",
-              "transition-all duration-300 transform-gpu"
+              "flex items-center justify-center gap-2 px-3 py-1.5 rounded-full",
+              "bg-white/5 backdrop-blur-xl border border-white/10",
+              "text-white/80 hover:text-white hover:bg-white/10 active:scale-95",
+              "transition-all duration-200 group shadow-xl"
             )}
           >
-            {isCSSFullscreen
-              ? <Minimize2 className="w-5 h-5" />
-              : <Maximize2 className="w-5 h-5" />
-            }
+            {isCSSFullscreen ? (
+              <>
+                <Minimize2 className="w-3.5 h-3.5" />
+                <span className="text-[10px] font-bold uppercase tracking-wider hidden sm:inline">Exit Theater</span>
+              </>
+            ) : (
+              <>
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span className="text-[10px] font-bold uppercase tracking-wider hidden sm:inline">Theater Mode</span>
+              </>
+            )}
           </button>
         </div>
       )}
 
-      {/* ⚠️ Error State (Sleek) */}
+      {/* Error overlay - Premium styled */}
       {isError && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="absolute inset-0 z-[45] flex items-center justify-center bg-black/95 backdrop-blur-md"
+          className="absolute inset-0 z-10 flex items-center justify-center bg-black/95 backdrop-blur-lg"
         >
           <div className="flex flex-col items-center gap-6 text-center px-8">
-            <div className="w-20 h-20 rounded-full bg-nf-accent/10 flex items-center justify-center border border-nf-accent/20">
+            <div className="p-4 rounded-3xl bg-nf-accent/10 border border-nf-accent/20">
               <AlertTriangle className="w-10 h-10 text-nf-accent" />
             </div>
             <div className="space-y-2">
-              <h2 className="text-white font-bold text-xl tracking-tight">Stream Unavailable</h2>
-              <p className="text-nf-text-muted text-sm leading-relaxed max-w-sm">
-                This source was blocked or is currently offline. Our shield might have neutralized a compromise.
+              <p className="text-white font-bold text-xl tracking-tight">Signal Interrupted</p>
+              <p className="text-nf-text-muted text-sm max-w-xs leading-relaxed">
+                The stream source has been blocked or is currently unavailable. Our automatic bypass is cooling down.
               </p>
             </div>
             <button
               onClick={handleRetry}
-              className="group flex items-center gap-3 px-8 py-4 rounded-2xl bg-nf-accent hover:bg-nf-accent-hover text-white text-sm font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95 shadow-2xl shadow-nf-accent/40"
+              className="group relative px-8 py-3 rounded-full bg-nf-accent text-white text-sm font-black transition-all hover:shadow-[0_0_30px_-5px_rgba(229,9,20,0.5)] active:scale-95 overflow-hidden"
             >
-              <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
-              Re-Engage
+              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500" />
+              <div className="relative flex items-center gap-2">
+                <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-700" />
+                RE-ENGAGE SHIELD
+              </div>
             </button>
           </div>
         </motion.div>
       )}
 
-      {/* 📺 The Stream Engine (Aggressively Shielded) */}
+      {/* The iframe itself - Protected by Iron Dome Native Firewall */}
       <iframe
         ref={iframeRef}
         key={iframeKey}
@@ -270,19 +259,10 @@ export function ShieldedPlayer({ src, iframeKey, layoutMode, className }: Shield
         referrerPolicy="no-referrer"
         scrolling="no"
         frameBorder={0}
-        className={cn(
-          "w-full h-full border-0 absolute inset-0 transition-opacity duration-1000",
-          isLoading ? "opacity-0" : "opacity-100"
-        )}
+        className="w-full h-full border-0 absolute inset-0 z-0 bg-black"
         onLoad={handleLoad}
         onError={handleError}
       />
-
-      {/* 🧤 Interaction Guard (Bottom) */}
-      {!isLoading && !isCSSFullscreen && (
-        <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/80 to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-      )}
-    </div>
     </div>
   );
 }

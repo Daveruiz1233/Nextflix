@@ -40,100 +40,66 @@ public class MainActivity extends BridgeActivity {
     // ══════════════════════════════════════════════════════════════════
     // NUCLEAR SHIELD JS — v2.0 (12 vectors + MutationObserver)
     // ══════════════════════════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════════
+    // NUCLEAR SHIELD JS — v3.0 (Iron Dome)
+    // ══════════════════════════════════════════════════════════════════
     private static final String SHIELD_JS =
         "(function(){" +
         "'use strict';" +
 
-        // Skip main Capacitor frame
-        "var isCapMain=(window.self===window.top)&&(typeof window.Capacitor!=='undefined'||typeof window.__capacitor__!=='undefined');" +
-        "if(isCapMain){window.open=function(){return{closed:true,focus:function(){},close:function(){}};};return;}" +
-
-        "var _ok=['localhost','127.0.0.1','capacitor'];" +
-        "function isOk(u){" +
-        "if(!u||u===''||u==='#')return true;" +
-        "var s=String(u);" +
-        "if(s.indexOf('blob:')===0||s.indexOf('data:')===0||s.indexOf('about:')===0||s.indexOf('javascript:')===0)return true;" +
-        "for(var i=0;i<_ok.length;i++){if(s.indexOf(_ok[i])!==-1)return true;}" +
-        "return false;" +
+        // 1. Skip main Capacitor frame to avoid RETRO_ERR
+        "if((window.self===window.top)&&(typeof window.Capacitor!=='undefined'||typeof window.__capacitor__!=='undefined')){" +
+        "window.open=function(){return{closed:true,focus:function(){},close:function(){}};};return;" +
         "}" +
 
-        // 1. location.href
-        "try{var hd=Object.getOwnPropertyDescriptor(Location.prototype,'href');" +
+        // 2. Iron Dome: Location Proxying
+        "try{" +
+        "var hd=Object.getOwnPropertyDescriptor(Location.prototype,'href');" +
         "if(hd&&hd.set){var os=hd.set;" +
-        "Object.defineProperty(Location.prototype,'href',{get:hd.get," +
-        "set:function(u){if(isOk(String(u))){os.call(this,u);}},configurable:true});}}" +
-        "catch(e){}" +
+        "Object.defineProperty(Location.prototype,'href',{" +
+        "get:hd.get," +
+        "set:function(u){" +
+        "var s=String(u);" +
+        "if(s.indexOf('localhost')!==-1||s.indexOf('capacitor')!==-1||s.indexOf('blob:')===0||s.indexOf('data:')===0||s.indexOf('about:')===0){os.call(this,u);}" +
+        "else{console.warn('[Shield] Intercepted navigation:',u);}" +
+        "},configurable:true});}" +
+        "}catch(e){}" +
 
-        // 2. location.replace
-        "try{var or=Location.prototype.replace;" +
-        "Location.prototype.replace=function(u){if(isOk(String(u))){or.call(this,u);}};}catch(e){}" +
-
-        // 3. location.assign
-        "try{var oa=Location.prototype.assign;" +
-        "Location.prototype.assign=function(u){if(isOk(String(u))){oa.call(this,u);}};}catch(e){}" +
-
-        // 4. window.open — TOTAL KILL
         "window.open=function(){return{closed:true,focus:function(){},close:function(){},postMessage:function(){}};};" +
 
-        // 5. <a> click with target=_blank/_top/_parent
-        "document.addEventListener('click',function(e){" +
+        // 3. Global Click & Touch Interception
+        "var killEvent=function(e){" +
         "var el=e.target;while(el){" +
         "if(el.tagName==='A'){" +
         "var h=el.getAttribute('href')||'';var t=el.getAttribute('target')||'';" +
-        "if((t==='_blank'||t==='_top'||t==='_parent')&&!isOk(h)){" +
-        "e.preventDefault();e.stopImmediatePropagation();return false;}break;}" +
-        "el=el.parentElement;}},true);" +
+        "if((t==='_blank'||t==='_top'||t==='_parent')&&h.indexOf('localhost')===-1&&h.indexOf('capacitor')===-1){" +
+        "e.preventDefault();e.stopImmediatePropagation();console.warn('[Shield] Escaping link blocked');" +
+        "}break;}" +
+        "el=el.parentElement;}};" +
+        "document.addEventListener('click',killEvent,true);" +
+        "document.addEventListener('mousedown',killEvent,true);" +
+        "document.addEventListener('touchstart',killEvent,true);" +
 
-        // 6. HTMLAnchorElement.prototype.click
-        "try{var ac=HTMLAnchorElement.prototype.click;" +
-        "HTMLAnchorElement.prototype.click=function(){if(!isOk(this.href||''))return;ac.call(this);};}catch(e){}" +
-
-        // 7. setTimeout/setInterval eval-string
-        "try{var oST=window.setTimeout;window.setTimeout=function(fn,d){" +
-        "if(typeof fn==='string'&&(fn.indexOf('location')!==-1||fn.indexOf('open(')!==-1||fn.indexOf('href')!==-1))return 0;" +
-        "return oST.apply(this,arguments);};" +
-        "var oSI=window.setInterval;window.setInterval=function(fn,d){" +
-        "if(typeof fn==='string'&&(fn.indexOf('location')!==-1||fn.indexOf('open(')!==-1))return 0;" +
-        "return oSI.apply(this,arguments);};}catch(e){}" +
-
-        // 8. requestAnimationFrame
-        "try{var oRAF=window.requestAnimationFrame;" +
-        "window.requestAnimationFrame=function(fn){if(typeof fn==='string')return 0;return oRAF.apply(this,arguments);};}catch(e){}" +
-
-        // 9. document.write injection
-        "try{var oDW=document.write;document.write=function(h){" +
-        "var s=String(h||'').toLowerCase();" +
-        "if(s.indexOf('location')!==-1||s.indexOf('window.open')!==-1||s.indexOf('meta http-equiv')!==-1)return;" +
-        "oDW.call(document,h);};}catch(e){}" +
-
-        // 10. postMessage redirect blocker
-        "window.addEventListener('message',function(e){" +
-        "if(e.data&&typeof e.data==='string'){var d=e.data.toLowerCase();" +
-        "if(d.indexOf('redirect')!==-1||d.indexOf('navigate')!==-1||d.indexOf('location')!==-1){e.stopImmediatePropagation();return;}}" +
-        "},true);" +
-
-        // 11. MutationObserver — kill meta-refresh, clickjack overlays, ad iframes
+        // 4. MutationObserver
         "try{var mo=new MutationObserver(function(ms){" +
         "for(var i=0;i<ms.length;i++){var a=ms[i].addedNodes;" +
-        "for(var j=0;j<a.length;j++){var n=a[j];if(!n.tagName)continue;var t=n.tagName.toUpperCase();" +
-        // Kill meta-refresh
-        "if(t==='META'&&(n.getAttribute('http-equiv')||'').toLowerCase()==='refresh'){n.remove();continue;}" +
-        // Kill invisible clickjack overlays
-        "if((t==='DIV'||t==='A'||t==='SPAN')&&n.style){" +
-        "var p=n.style.position;var z=parseInt(n.style.zIndex||'0');var o=parseFloat(n.style.opacity||'1');" +
-        "if((p==='fixed'||p==='absolute')&&z>999&&o<0.05){n.remove();continue;}}" +
-        // Kill zero-size tracking iframes
-        "if(t==='IFRAME'){var w=parseInt(n.style.width||n.getAttribute('width')||'999');" +
-        "var ht=parseInt(n.style.height||n.getAttribute('height')||'999');" +
-        "if(w<=1||ht<=1){n.remove();continue;}" +
-        "var src=(n.getAttribute('src')||'').toLowerCase();" +
-        "if(src.indexOf('ad')!==-1||src.indexOf('pop')!==-1||src.indexOf('click')!==-1||src.indexOf('track')!==-1){n.remove();}}" +
-        "}}});mo.observe(document.documentElement||document,{childList:true,subtree:true});}catch(e){}" +
+        "for(var j=0;j<a.length;j++){var n=a[j];" +
+        "if(n.tagName==='META'&&(n.getAttribute('http-equiv')||'').toLowerCase()==='refresh'){n.remove();}" +
+        "if(n.tagName==='IFRAME'){" +
+        "var w=n.offsetWidth||parseInt(n.style.width||'999');" +
+        "var h=n.offsetHeight||parseInt(n.style.height||'999');" +
+        "if(w<=1||h<=1){n.remove();}" +
+        "}}}});mo.observe(document.documentElement,{childList:true,subtree:true});}catch(e){}" +
 
-        // 12. beforeunload kill
-        "window.addEventListener('beforeunload',function(e){e.preventDefault();e.returnValue='';},true);" +
+        // 5. Subtitle Bridge
+        "(function(){var sy=new Set();setInterval(function(){" +
+        "var v=document.querySelector('video');var a=window.art?.option?.subtitle||window.art?.option?.subtitles;" +
+        "if(!v||!a)return;var l=Array.isArray(a)?a:[a];" +
+        "l.forEach(function(t){if(t.url&&!sy.has(t.url)){" +
+        "var tr=document.createElement('track');tr.kind='subtitles';tr.label=t.name||t.label||'Sub';tr.src=t.url;" +
+        "v.appendChild(tr);sy.add(t.url);console.log('Synced:',tr.label);}});},3000);})();" +
 
-        "console.log('[Shield v2] 12 vectors + MutationObserver active');" +
+        "console.log('[Shield v3 ✓] Iron Dome Active');" +
         "})();";
 
     private static final WebResourceResponse EMPTY_OK =
@@ -204,7 +170,7 @@ public class MainActivity extends BridgeActivity {
                 String host = request.getUrl().getHost();
                 if (host != null) host = host.toLowerCase();
 
-                // Fast-path: known ad domains
+                // 1. Fast-path: Ad domain blocking
                 if (host != null) {
                     for (String ad : AD_DOMAINS) {
                         if (host.equals(ad) || host.endsWith("." + ad)) {
@@ -213,7 +179,7 @@ public class MainActivity extends BridgeActivity {
                     }
                 }
 
-                // URL pattern blocking
+                // 2. Pattern blocking
                 if (url.contains("/popup") || url.contains("pop.js") ||
                     url.contains("/ads/") || url.contains("/advert") ||
                     url.contains("prebid") || url.contains("track.php") ||
@@ -222,17 +188,49 @@ public class MainActivity extends BridgeActivity {
                     return isScript(url) ? EMPTY_JS : EMPTY_OK;
                 }
 
+                // 3. NUCLEAR: Every-Frame Injection Bridge
+                // We don't modify the HTML directly here to avoid performance lag,
+                // instead we rely on the native browser lock + aggressive evaluateJavascript
                 return super.shouldInterceptRequest(view, request);
+            }
+
+            @Override
+            public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                super.onPageStarted(view, url, favicon);
+                // Early injection
+                view.evaluateJavascript(SHIELD_JS, null);
             }
 
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
+                // Late injection & Cleanup
                 view.evaluateJavascript(SHIELD_JS, null);
             }
         });
 
-        Log.i(TAG, "🛡️ Shield v2 — 12 vectors + MutationObserver + native blocks");
+        // ══════════════════════════════════════════════════════════════════
+        // Aggressive Sub-frame Injection (WebChromeClient)
+        // ══════════════════════════════════════════════════════════════════
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onCreateWindow(WebView view, boolean isDialog,
+                                          boolean isUserGesture, Message resultMsg) {
+                Log.e(TAG, "🚫 onCreateWindow BLOCKED");
+                return false;
+            }
+
+            @Override
+            public void onProgressChanged(WebView view, int newProgress) {
+                super.onProgressChanged(view, newProgress);
+                // Inject during loading to catch early ad-scripts (15% is usually after headers)
+                if (newProgress > 15 && newProgress < 90) {
+                    view.evaluateJavascript(SHIELD_JS, null);
+                }
+            }
+        });
+
+        Log.i(TAG, "🛡️ Shield v3 — Iron Dome (Every-Frame Mode) Armed");
     }
 
     private boolean isScript(String url) {
