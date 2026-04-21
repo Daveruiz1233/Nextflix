@@ -7,170 +7,88 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKNavigationDelegate, WKU
 
     var window: UIWindow?
 
-    // ═══════════════════════════════════════════════════════════════════
-    // INTELLIGENCE SHIELD — v4.0 (AdGuard Parity)
-    //
-    // Instead of blocking EVERYTHING (which kills player controls),
-    // this uses the same strategy as AdGuard's browser extension:
-    //   1. Decoy Window Factory — fakes blocked popups so scripts don't crash
-    //   2. Filter-driven window.open proxy — checks popup-rules.json
-    //   3. Selective click interception — only blocks <a> escapes, NOT touches
-    //   4. MutationObserver — removes meta-refresh and zero-size iframes
-    //   5. Subtitle Bridge — syncs VidSrc tracks into native player
-    //
-    // The key insight: AdGuard NEVER blocks mousedown/touchstart globally.
-    // It only intercepts the RESULT of those events (window.open calls).
-    // ═══════════════════════════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════════
+    // INTELLIGENCE SHIELD JS — v4.1 (The Ghostbuster)
+    // ══════════════════════════════════════════════════════════════════
     private let shieldScript = """
     (function() {
         'use strict';
-
-        // ── Guard: Skip the Capacitor main frame ──────────────────────
-        if (window.self === window.top &&
-            (window.Capacitor !== undefined || window.__capacitor__ !== undefined)) {
-            return;
-        }
-
-        // Prevent double-injection
+        if ((window.self === window.top) && (typeof window.Capacitor !== 'undefined' || typeof window.__capacitor__ !== 'undefined')) { return; }
         if (window.__SHIELD_ARMED__) return;
         window.__SHIELD_ARMED__ = true;
 
-        // ── 1. Decoy Window Factory (AdGuard pattern) ─────────────────
-        // When we block a popup, we return a convincing fake Window object.
-        // This prevents the calling script from crashing or retrying.
-        function createDecoyWindow() {
-            var decoy = {
-                closed: false,
-                opener: window,
-                location: { href: 'about:blank', replace: function(){}, assign: function(){} },
-                document: { write: function(){}, close: function(){}, readyState: 'complete' },
-                focus: function() {},
-                blur: function() {},
-                close: function() { decoy.closed = true; },
-                postMessage: function() {},
-                addEventListener: function() {},
-                removeEventListener: function() {},
-                dispatchEvent: function() { return true; },
-                setTimeout: function() { return 0; },
-                setInterval: function() { return 0; },
-                clearTimeout: function() {},
-                clearInterval: function() {}
-            };
-            return decoy;
-        }
-
-        // ── 2. Build popup domain lookup from injected rules ──────────
-        // The native layer injects window.__SHIELD_POPUP_DOMAINS__ as an array
-        // of domains extracted from AdGuard's $popup filter rules.
-        var popupSet = new Set();
-        try {
-            var injected = window.__SHIELD_POPUP_DOMAINS__ || [];
-            for (var i = 0; i < injected.length; i++) {
-                popupSet.add(injected[i]);
-            }
-        } catch(e) {}
-
-        // Known safe streaming domains that should NEVER be blocked
-        var safeDomains = [
-            'vidsrc.to', 'vidsrc.me', 'vidsrc.net', 'vidsrc.io', 'vidsrc.in',
-            'vidsrc.xyz', 'vidsrc.cc', 'player.videasy.net', 'embed.su',
-            'multiembed.mov', 'autoembed.co', 'vixsrc.to',
-            'api.themoviedb.org', 'image.tmdb.org'
-        ];
-        var safeSet = new Set(safeDomains);
-
-        function extractHost(url) {
+        // 1. Ghostbuster: Overlay Nuker (Kills invisible interaction traps)
+        function ghostbuster() {
             try {
-                if (!url || url.indexOf('://') === -1) return null;
-                var a = url.split('://')[1];
-                if (!a) return null;
-                return a.split('/')[0].split(':')[0].toLowerCase();
-            } catch(e) { return null; }
+                var all = document.querySelectorAll('div,section,span');
+                for (var i = 0; i < all.length; i++) {
+                    var n = all[i];
+                    var s = getComputedStyle(n);
+                    var zi = parseInt(s.zIndex) || 0;
+                    var op = parseFloat(s.opacity) || 1;
+                    var vis = s.visibility;
+                    var bg = s.backgroundColor;
+                    if (zi > 1000 && n.offsetWidth > window.innerWidth * 0.9 && n.offsetHeight > window.innerHeight * 0.9) {
+                        if (op < 0.2 || bg === 'rgba(0, 0, 0, 0)' || vis === 'hidden') {
+                            console.warn('[Shield] Vaporized Ghost Overlay:', n.tagName, zi);
+                            n.remove();
+                        }
+                    }
+                }
+            } catch (e) {}
+        }
+        setInterval(ghostbuster, 800);
+
+        // 2. Native Spoofing (Bypass AdBlock Detectors)
+        function spoof(fn, str) { try { fn.toString = function() { return str; }; } catch (e) {} }
+
+        // 3. Decoy Window Factory
+        function createDecoyWindow() {
+            var d = {
+                closed: false, opener: window,
+                location: { href: 'about:blank', replace: function() {}, assign: function() {} },
+                document: { write: function() {}, close: function() {}, readyState: 'complete' },
+                focus: function() {}, blur: function() {}, close: function() { d.closed = true; },
+                postMessage: function() {}, addEventListener: function() {}, removeEventListener: function() {},
+                dispatchEvent: function() { return true; }, setTimeout: function() { return 0; },
+                setInterval: function() { return 0; }, clearTimeout: function() {}, clearInterval: function() {}
+            };
+            return d;
         }
 
-        function isDomainBlocked(host) {
-            if (!host) return false;
-            // Check exact match
-            if (popupSet.has(host)) return true;
-            // Check parent domain (e.g. sub.adsterra.com → adsterra.com)
-            var parts = host.split('.');
-            for (var i = 1; i < parts.length - 1; i++) {
-                if (popupSet.has(parts.slice(i).join('.'))) return true;
-            }
-            return false;
-        }
+        // 4. Build popup domain lookup
+        var popupSet = new Set();
+        try { var inj = window.__SHIELD_POPUP_DOMAINS__ || []; for (var i = 0; i < inj.length; i++) { popupSet.add(inj[i]); } } catch (e) {}
+        var safeSet = new Set(['vidsrc.to','vidsrc.me','vidsrc.net','vidsrc.io','vidsrc.in','player.videasy.net','embed.su']);
+        function extractHost(u) { try { if (!u || u.indexOf('://') === -1) return null; return u.split('://')[1].split('/')[0].split(':')[0].toLowerCase(); } catch (e) { return null; } }
+        function isBlocked(h) { if (!h) return false; if (popupSet.has(h)) return true; var p = h.split('.'); for (var i = 1; i < p.length-1; i++) { if (popupSet.has(p.slice(i).join('.'))) return true; } return false; }
 
-        function isDomainSafe(host) {
-            if (!host) return false;
-            if (safeSet.has(host)) return true;
-            var parts = host.split('.');
-            for (var i = 1; i < parts.length - 1; i++) {
-                if (safeSet.has(parts.slice(i).join('.'))) return true;
-            }
-            return false;
-        }
-
-        // ── 3. Intelligent window.open Proxy ──────────────────────────
-        // This is the core of AdGuard's popup blocking:
-        //   - If the URL is relative, blob, data, about, or javascript → ALLOW
-        //   - If the host is a known safe streaming domain → ALLOW
-        //   - If the host matches a popup filter rule → BLOCK with decoy
-        //   - Otherwise → BLOCK with decoy (unknown external = likely ad)
+        // 5. Intelligent window.open Proxy (with Spoofing)
         var nativeOpen = window.open;
         window.open = function(url, target, features) {
             try {
                 var s = String(url || '');
-                // Always allow internal/special URLs
-                if (!s || s === 'about:blank' ||
-                    s.indexOf('blob:') === 0 || s.indexOf('data:') === 0 ||
-                    s.indexOf('javascript:') === 0 || s.charAt(0) === '/') {
+                if (!s || s === 'about:blank' || s.charAt(0) === '/') { return nativeOpen ? nativeOpen.call(window, url, target, features) : createDecoyWindow(); }
+                var h = extractHost(s);
+                if (!h || s.indexOf('localhost') !== -1 || safeSet.has(h) || !isBlocked(h)) {
                     return nativeOpen ? nativeOpen.call(window, url, target, features) : createDecoyWindow();
                 }
-
-                var host = extractHost(s);
-
-                // Allow same-origin
-                if (host && (host === location.hostname ||
-                    s.indexOf('localhost') !== -1 || s.indexOf('capacitor') !== -1)) {
-                    return nativeOpen ? nativeOpen.call(window, url, target, features) : createDecoyWindow();
-                }
-
-                // Allow known safe streaming domains
-                if (host && isDomainSafe(host)) {
-                    return nativeOpen ? nativeOpen.call(window, url, target, features) : createDecoyWindow();
-                }
-
-                // Block: matched by AdGuard popup filter
-                if (host && isDomainBlocked(host)) {
-                    console.warn('[Shield] Popup BLOCKED (AdGuard filter):', host);
-                    return createDecoyWindow();
-                }
-
-                // Block: unknown external domain (conservative — most are ads)
-                console.warn('[Shield] Popup BLOCKED (unknown external):', s);
+                console.warn('[Shield] Redirect Blocked:', h);
                 return createDecoyWindow();
-            } catch(e) {
-                return createDecoyWindow();
-            }
+            } catch (e) { return createDecoyWindow(); }
         };
+        spoof(window.open, 'function open() { [native code] }');
 
-        // ── 4. Selective Link Escape Interception ─────────────────────
-        // Only intercept clicks on <a> tags that try to escape the app.
-        // We do NOT touch mousedown or touchstart — those are for the player.
+        // 6. Selective Link Interception
         document.addEventListener('click', function(e) {
             var el = e.target;
             while (el) {
                 if (el.tagName === 'A') {
                     var h = el.getAttribute('href') || '';
                     var t = el.getAttribute('target') || '';
-                    if ((t === '_blank' || t === '_top' || t === '_parent') &&
-                        h.indexOf('localhost') === -1 && h.indexOf('capacitor') === -1) {
-                        var linkHost = extractHost(h);
-                        if (!linkHost || !isDomainSafe(linkHost)) {
-                            e.preventDefault();
-                            e.stopImmediatePropagation();
-                            console.warn('[Shield] Link escape blocked:', h);
-                        }
+                    if ((t === '_blank' || t === '_top') && h.indexOf('localhost') === -1 && h.indexOf('capacitor') === -1) {
+                        var lh = extractHost(h);
+                        if (!lh || !safeSet.has(lh)) { e.preventDefault(); e.stopImmediatePropagation(); }
                     }
                     break;
                 }
@@ -178,59 +96,51 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKNavigationDelegate, WKU
             }
         }, true);
 
-        // ── 5. MutationObserver — Remove ad artifacts ─────────────────
+        // 7. MutationObserver
         try {
-            var observer = new MutationObserver(function(mutations) {
-                for (var i = 0; i < mutations.length; i++) {
-                    var added = mutations[i].addedNodes;
-                    for (var j = 0; j < added.length; j++) {
-                        var node = added[j];
-                        if (node.nodeType !== 1) continue;
-                        // Kill meta-refresh redirects
-                        if (node.tagName === 'META' &&
-                            (node.getAttribute('http-equiv') || '').toLowerCase() === 'refresh') {
-                            node.remove();
-                            console.warn('[Shield] meta-refresh REMOVED');
-                        }
-                        // Kill zero-size invisible iframes (ad trackers)
-                        if (node.tagName === 'IFRAME') {
-                            var w = node.offsetWidth || parseInt(node.style.width || '999');
-                            var h = node.offsetHeight || parseInt(node.style.height || '999');
-                            if (w <= 1 || h <= 1) {
-                                node.remove();
-                            }
+            var mo = new MutationObserver(function(ms) {
+                ghostbuster();
+                for (var i = 0; i < ms.length; i++) {
+                    var a = ms[i].addedNodes;
+                    for (var j = 0; j < a.length; j++) {
+                        var n = a[j];
+                        if (n.nodeType !== 1) continue;
+                        if (n.tagName === 'META' && (n.getAttribute('http-equiv') || '').toLowerCase() === 'refresh') { n.remove(); }
+                        if (n.tagName === 'IFRAME') {
+                            var w = n.offsetWidth; var ht = n.offsetHeight;
+                            if (w <= 1 || ht <= 1) n.remove();
                         }
                     }
                 }
             });
-            observer.observe(document.documentElement, { childList: true, subtree: true });
-        } catch(e) {}
+            mo.observe(document.documentElement, { childList: true, subtree: true });
+        } catch (e) {}
 
-        // ── 6. Subtitle Bridge — Sync into Native Player ──────────────
+        // 8. Subtitle Bridge
         (function() {
-            var synced = new Set();
+            var sy = new Set();
             setInterval(function() {
                 var v = document.querySelector('video');
-                var art = window.art?.option?.subtitle || window.art?.option?.subtitles;
-                if (!v || !art) return;
-                var list = Array.isArray(art) ? art : [art];
-                list.forEach(function(t) {
-                    if (t.url && !synced.has(t.url)) {
-                        var track = document.createElement('track');
-                        track.kind = 'subtitles';
-                        track.label = t.name || t.label || 'Unknown';
-                        track.src = t.url;
-                        v.appendChild(track);
-                        synced.add(t.url);
-                        console.log('[Shield] Subtitle synced:', track.label);
+                var a = window.art?.option?.subtitle || window.art?.option?.subtitles;
+                if (!v || !a) return;
+                var l = Array.isArray(a) ? a : [a];
+                l.forEach(function(t) {
+                    if (t.url && !sy.has(t.url)) {
+                        var tr = document.createElement('track');
+                        tr.kind = 'subtitles';
+                        tr.label = t.name || t.label || 'Sub';
+                        tr.src = t.url;
+                        v.appendChild(tr);
+                        sy.add(t.url);
                     }
                 });
             }, 3000);
         })();
 
-        console.log('[Shield v4 ✓] Intelligence Shield Active (' + popupSet.size + ' popup rules loaded)');
+        console.log('[Shield v4.1 Ghostbuster 👻] AdGuard-mode Active');
     })();
     """
+
 
     // ═══════════════════════════════════════════════════════════════════
     // APP LIFECYCLE

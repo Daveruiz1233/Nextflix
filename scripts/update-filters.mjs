@@ -265,6 +265,7 @@ async function run() {
   const hardcodedAdDomains = [
     "rtmark.net", "104processors.net", "yandex.ru",
     "tarzansaminate.cfd", "streameeeeee.site",
+    "vsembed.ru", "cloudnestra.com", "2embed.biz", "zplayer.live",
     "doubleclick.net", "googlesyndication.com",
     "taboola.com", "outbrain.com", "popads.net", "popcash.net",
     "propellerads.com", "exoclick.com", "trafficjunky.net",
