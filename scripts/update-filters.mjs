@@ -62,6 +62,11 @@ const IOS_JSON = path.join(process.cwd(), "ios", "App", "App", "adblock-rules.js
 const ANDROID_JSON = path.join(
   process.cwd(), "android", "app", "src", "main", "assets", "adblock-rules.json"
 );
+const IOS_POPUP_JSON = path.join(process.cwd(), "ios", "App", "App", "popup-rules.json");
+const ANDROID_POPUP_JSON = path.join(
+  process.cwd(), "android", "app", "src", "main", "assets", "popup-rules.json"
+);
+
 
 // Domains whitelisted — NEVER block these regardless of filter lists
 const WHITELIST = new Set([
@@ -118,6 +123,41 @@ function parseDomains(content) {
   return domains;
 }
 
+/**
+ * Parse AdGuard/ABP $popup and $document rules.
+ * These are the rules that specifically target popup/redirect windows.
+ * This is what makes AdGuard's popup blocker so effective — it knows
+ * WHICH domains are popup sources vs legitimate navigations.
+ */
+function parsePopupDomains(content) {
+  const popupDomains = new Set();
+  for (let line of content.split("\n")) {
+    line = line.trim();
+    if (!line || line.startsWith("!") || line.startsWith("[") || line.startsWith("#")) continue;
+
+    // Rules with $popup, $document, or $all modifiers
+    const hasPopupModifier = /\$(.*,)?(popup|document|all)(,|$)/i.test(line);
+    if (!hasPopupModifier) continue;
+
+    // Extract domain from ||domain.com^ pattern
+    if (line.startsWith("||") && line.includes("^")) {
+      const caret = line.indexOf("^");
+      const domain = line.substring(2, caret);
+      if (
+        domain &&
+        !domain.includes("/") &&
+        !domain.includes("*") &&
+        !domain.includes(" ") &&
+        domain.includes(".") &&
+        !WHITELIST.has(domain.toLowerCase())
+      ) {
+        popupDomains.add(domain.toLowerCase());
+      }
+    }
+  }
+  return popupDomains;
+}
+
 // FNV-1a hash (must match sw.js)
 function hash(str, seed) {
   let h = 0x811c9dc5 ^ seed;
@@ -138,14 +178,18 @@ async function run() {
   console.log("================================================");
 
   const allDomains = new Set();
+  const allPopupDomains = new Set();
 
   for (const source of FILTER_SOURCES) {
     try {
       console.log(`\n📡 Fetching: ${source.name}`);
       const content = await fetchText(source.url);
       const domains = parseDomains(content);
+      const popupDomains = parsePopupDomains(content);
       domains.forEach((d) => allDomains.add(d));
-      console.log(`   ✅ +${domains.size.toLocaleString()} domains (total: ${allDomains.size.toLocaleString()})`);
+      popupDomains.forEach((d) => allPopupDomains.add(d));
+      console.log(`   ✅ +${domains.size.toLocaleString()} domains, +${popupDomains.size.toLocaleString()} popup rules`);
+      console.log(`   📊 Running total: ${allDomains.size.toLocaleString()} domains, ${allPopupDomains.size.toLocaleString()} popup rules`);
     } catch (err) {
       console.warn(`   ⚠️  Failed to fetch ${source.name}: ${err.message}`);
     }
@@ -157,7 +201,9 @@ async function run() {
   }
 
   const totalDomains = [...allDomains];
+  const totalPopupDomains = [...allPopupDomains];
   console.log(`\n✨ Total unique domains: ${totalDomains.length.toLocaleString()}`);
+  console.log(`🚫 Total popup/redirect domains: ${totalPopupDomains.length.toLocaleString()}`);
 
   // ─── 1. BUILD BLOOM FILTER BINARY ───────────────────────────────
   console.log("\n📦 Compiling Bloom Filter binary...");
@@ -209,9 +255,40 @@ async function run() {
   console.log(`   ✅ Android: ${ANDROID_JSON}`);
   console.log(`   📋 Rules:   ${rules.length.toLocaleString()}`);
 
+  // ─── 3. GENERATE POPUP RULES (Intelligence Shield) ─────────────
+  // Compact domain list for the window.open proxy inside WebView frames.
+  // These domains will be injected as window.__SHIELD_POPUP_DOMAINS__
+  // and checked by the Intelligence Shield's window.open interceptor.
+  console.log("\n🚫 Generating popup rules (Intelligence Shield)...");
+
+  // Also add the hardcoded fast-path ad domains from MainActivity
+  const hardcodedAdDomains = [
+    "rtmark.net", "104processors.net", "yandex.ru",
+    "tarzansaminate.cfd", "streameeeeee.site",
+    "doubleclick.net", "googlesyndication.com",
+    "taboola.com", "outbrain.com", "popads.net", "popcash.net",
+    "propellerads.com", "exoclick.com", "trafficjunky.net",
+    "juicyads.com", "hilltopads.net", "adsterra.com",
+    "bidvertiser.com", "yllix.com", "clickadu.com",
+    "scorecardresearch.com", "quantserve.com", "omtrdc.net",
+    "adsrvr.org", "rubiconproject.com", "casalemedia.com",
+    "openx.net", "pubmatic.com", "criteo.com",
+  ];
+  hardcodedAdDomains.forEach((d) => allPopupDomains.add(d));
+
+  const popupRulesJson = JSON.stringify([...allPopupDomains]);
+  ensureDir(IOS_POPUP_JSON);
+  ensureDir(ANDROID_POPUP_JSON);
+  fs.writeFileSync(IOS_POPUP_JSON, popupRulesJson);
+  fs.writeFileSync(ANDROID_POPUP_JSON, popupRulesJson);
+  console.log(`   ✅ iOS:     ${IOS_POPUP_JSON}`);
+  console.log(`   ✅ Android: ${ANDROID_POPUP_JSON}`);
+  console.log(`   🚫 Popup domains: ${allPopupDomains.size.toLocaleString()}`);
+
   console.log("\n🎉 Shield compilation complete!");
   console.log("================================================");
   console.log(`🛡️  AdGuard-grade protection: ${totalDomains.length.toLocaleString()} domains`);
+  console.log(`🚫 Intelligence Shield (popup): ${allPopupDomains.size.toLocaleString()} popup domains`);
   console.log(`⚡ Service Worker: O(1) Bloom filter lookups`);
   console.log(`📱 Native layers: ${rules.length.toLocaleString()} content rules`);
 }
