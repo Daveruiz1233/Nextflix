@@ -37,23 +37,9 @@ export default function RootLayout({
           httpEquiv="Content-Security-Policy"
           content="default-src 'self' https: data: blob:; script-src 'self' 'unsafe-eval' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' https://image.tmdb.org data: blob: *; media-src 'self' blob: data: https: *; worker-src 'self' blob:; frame-src 'self' https://vidsrc.to https://player.videasy.net https://vidsrc.xyz https://vidsrc.cc https://vidsrc.me https://vidsrc.net https://vidsrc.io https://vidsrc.in https://v2.vidsrc.me https://*.v2.vidsrc.me https://vid2vidsrc.top https://short.ink https://vidlink.pro https://vixsrc.to https://embed.su https://multiembed.mov https://autoembed.co https://player.autoembed.cc https://*.autoembed.cc https://*.vidsrc.xyz https://*.vidsrc.net https://vsrc.su https://vidsrcme.su https://vidsrcme.ru https://vidsrc-embed.su https://vidsrc-embed.ru; connect-src 'self' https://api.themoviedb.org https://*.vidsrc.xyz https://*.vidsrc.net https://*.v2.vidsrc.me https://*.vidlink.pro https://*.vixsrc.to https://vid2vidsrc.top https://*.vsrc.su https://*.vidsrcme.su https://*.vidsrcme.ru;"
         />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              // Nextflix Shield — Service Worker Pre-arm
-              (function() {
-                if ('serviceWorker' in navigator) {
-                  navigator.serviceWorker.register('/sw.js', { scope: '/' })
-                    .then(function(reg) { console.log('[Shield] SW armed:', reg.scope); })
-                    .catch(function(err) { console.warn('[Shield] SW failed:', err); });
-                }
-              })();
-            `,
-          }}
-        />
-        <script src="/adblock-init.js" />
       </head>
       <body className="bg-nf-bg text-nf-text antialiased">
+        <script src="/adblock-init.js"></script>
         <Providers>
           <LayoutWrapper>{children}</LayoutWrapper>
         </Providers>

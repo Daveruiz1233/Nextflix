@@ -189,6 +189,7 @@ export function ShieldedPlayer({ src, iframeKey, layoutMode, className }: Shield
         ref={iframeRef}
         key={iframeKey}
         src={src}
+        sandbox="allow-scripts allow-same-origin allow-presentation allow-forms allow-popups"
         allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
         allowFullScreen
         referrerPolicy="no-referrer"

@@ -24,13 +24,6 @@ export function CatalogPage() {
   const apiKey = process.env.NEXT_PUBLIC_TMDB_API_KEY;
 
   // DIAGNOSTIC LOGIC
-  const [showDiagnostics, setShowDiagnostics] = useState(false);
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (!hasData && isAnyLoading) setShowDiagnostics(true);
-    }, 2000); // reduced to 2 seconds
-    return () => clearTimeout(timer);
-  }, [hasData, isAnyLoading]);
 
   // Combine Pinoy movies and TV for a single row
   const pinoyHits = [
@@ -45,51 +38,6 @@ export function CatalogPage() {
 
   return (
     <div className="relative min-h-screen bg-nf-bg pb-20 overflow-x-hidden">
-      {/* 🛠️ SHIELD DIAGNOSTICS OVERLAY */}
-      {showDiagnostics && (
-        <div className="fixed top-20 left-4 right-4 z-[9999] p-4 rounded-xl border border-white/20 bg-black/99 backdrop-blur-2xl shadow-2xl animate-in fade-in slide-in-from-top-4 duration-500">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-bold text-red-500 flex items-center gap-2">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-              </span>
-              SHIELD v1.1.2 DIAGNOSTICS
-            </h3>
-            <button onClick={() => setShowDiagnostics(false)} className="text-white/40 hover:text-white px-2 py-1 text-xs">Close</button>
-          </div>
-          <div className="space-y-2 text-[10px] font-mono leading-tight">
-            <div className="flex justify-between">
-              <span className="text-white/60">TMDB API KEY:</span>
-              <span className={apiKey ? "text-green-400" : "text-red-400"}>
-                {apiKey ? `OK (**${apiKey.slice(-4)})` : "MISSING"}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-white/60">TRENDING ERR:</span>
-              <span className="text-red-400 text-right max-w-[150px] truncate">
-                {trendingError ? (trendingError as any).message : "NONE"}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-white/60">BUILD VER:</span>
-              <span className="text-yellow-400">2026-04-21 05:04 AM</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-white/60">DEVICE AGENT:</span>
-              <span className="text-blue-400 truncate max-w-[150px]">
-                {typeof navigator !== 'undefined' ? navigator.userAgent : 'Unknown'}
-              </span>
-            </div>
-          </div>
-          <button 
-            onClick={() => window.location.reload()}
-            className="w-full mt-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-[10px] font-bold text-white transition-colors border border-white/5"
-          >
-            HARD REBOOT / RELOAD
-          </button>
-        </div>
-      )}
 
       {/* Hero Section with extra padding-top to account for fixed header if needed */}
       {trending?.results && trending.results.length > 0 && (

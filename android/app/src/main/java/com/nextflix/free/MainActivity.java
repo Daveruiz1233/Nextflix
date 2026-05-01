@@ -39,6 +39,21 @@ public class MainActivity extends BridgeActivity {
                     return true;
                 }
             });
+
+            // Block iframe redirects natively
+            webView.setWebViewClient(new com.getcapacitor.BridgeWebViewClient(this.bridge) {
+                @Override
+                public boolean shouldOverrideUrlLoading(WebView view, android.webkit.WebResourceRequest request) {
+                    if (!request.isForMainFrame()) {
+                        String url = request.getUrl().toString().toLowerCase();
+                        // Block common ad/redirect patterns
+                        if (url.contains("adscore") || url.contains("rtmark") || url.contains("pop") || url.contains("tracker") || url.contains("affiliate") || url.contains("doubleclick") || url.contains("syndication")) {
+                            return true; // Block the redirect
+                        }
+                    }
+                    return super.shouldOverrideUrlLoading(view, request);
+                }
+            });
         }
     }
 }
