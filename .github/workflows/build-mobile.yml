@@ -177,7 +177,7 @@ jobs:
 
             *Educational/personal use only.*
           files: |
-            android/app/build/outputs/apk/debug/app-debug.apk
+            app-debug.apk
             Nextflix-Unsigned.ipa
           draft: false
           prerelease: true
